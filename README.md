@@ -63,3 +63,12 @@ downloaderConfig.shouldCacheCSS = true
 downloaderConfig.limitOfConcurrentDownloads = 3
 OfflineDownloadsManager.shared.setConfig(downloaderConfig)
 ```
+
+Then you are ready to start download
+
+```swift
+let objectToSave = CustomType()
+let data = OfflineStorageManager.shared.dataModel(for: objectToSave)
+let entry = OfflineDownloaderEntry(dataModel: data, parts: [])
+OfflineDownloadsManager.shared.addAndStart(entry: entry)
+```
