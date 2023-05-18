@@ -14,14 +14,14 @@ enum OfflineDownloaderStatus {
 
 public class OfflineDownloaderEntry {
     public var dataModel: OfflineStorageDataModel
-    var parts: [OfflineDownloaderEntryPart]
+    public var parts: [OfflineDownloaderEntryPart]
     var percent: CGFloat = 0
     var status: OfflineDownloaderStatus {
         // TODO: go throught parts and check status then return part
         return .initialized
     }
 
-    init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
+    public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
         self.parts = parts
     }

@@ -26,7 +26,7 @@ public class OfflineStorageManager {
         return []
     }
 
-    func dataModel<T:OfflineStorageDataProtocol>(for object: T) -> OfflineStorageDataModel? {
+    public func dataModel<T:OfflineStorageDataProtocol>(for object: T) -> OfflineStorageDataModel? {
         object.toOfflineModel()
     }
 
