@@ -1,4 +1,5 @@
 import Foundation
 
-public class OfflineStorageConfig {    
+public class OfflineStorageConfig {
+    public init() {}
 }
