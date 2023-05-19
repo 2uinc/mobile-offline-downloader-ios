@@ -5,7 +5,7 @@ class OfflineDownloaderLink {
     let tag: String?
     let attribute: String?
     var extractedLink: String?
-    var downloadedLink: String?
+    var downloadedRelativePath: String?
 
     var isWebLink: Bool {
         tag != nil && tag?.isEmpty == false
@@ -36,12 +36,22 @@ class OfflineDownloaderLink {
     }
 
     var isDownloaded: Bool {
-        downloadedLink != nil
+        downloadedRelativePath != nil
     }
 
-    init(link: String, tag: String?, attribute: String?) {
+    init(link: String, tag: String? = nil, attribute: String? = nil) {
         self.link = link
         self.tag = tag
         self.attribute = attribute
     }
+}
+
+extension OfflineDownloaderLink: Equatable {
+    static func == (lhs: OfflineDownloaderLink, rhs: OfflineDownloaderLink) -> Bool {
+        lhs.link == rhs.link && lhs.tag == rhs.tag &&
+        lhs.attribute == rhs.attribute && lhs.extractedLink == rhs.extractedLink &&
+        lhs.downloadedRelativePath == rhs.downloadedRelativePath
+    }
+    
+    
 }

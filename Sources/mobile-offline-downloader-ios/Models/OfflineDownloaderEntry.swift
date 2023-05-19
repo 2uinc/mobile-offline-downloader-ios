@@ -35,4 +35,8 @@ public class OfflineDownloaderEntry {
         let part = OfflineDownloaderEntryPart(value: .url(link))
         parts.append(part)
     }
+    
+    public func index(for part: OfflineDownloaderEntryPart) -> Int? {
+        return parts.firstIndex(of: part)
+    }
 }

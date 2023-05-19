@@ -1,7 +1,7 @@
 import Foundation
 
 struct OfflineLinkDownloader {
-    func download(urlString: String, toFolder folder: String) async throws -> URL {
+    static func download(urlString: String, toFolder folder: String) async throws -> URL {
         if Task.isCancelled { throw URLError(.cancelled) }
 
         guard let url = URL(string: urlString) else {
@@ -21,7 +21,7 @@ struct OfflineLinkDownloader {
         }
     }
 
-    private func path(for url: URL, with response: URLResponse) -> String {
+    static private func path(for url: URL, with response: URLResponse) -> String {
         let path = url.path
         if let last = path.components(separatedBy: "/").last,
            last.contains(".") {
@@ -45,7 +45,7 @@ struct OfflineLinkDownloader {
         }
     }
 
-    private func alterFilePath(_ filePath: String) -> String {
+    static private func alterFilePath(_ filePath: String) -> String {
         var components = filePath.components(separatedBy: "/")
         if let fileName = components.last {
             var fileNameComponents = fileName.components(separatedBy: ".")
@@ -59,7 +59,7 @@ struct OfflineLinkDownloader {
         return components.joined(separator: "/")
     }
 
-    private func destinationURL(for url: URL, with response: URLResponse, in folder: String) -> URL {
+    static private func destinationURL(for url: URL, with response: URLResponse, in folder: String) -> URL {
         let filePath = path(for: url, with: response)
         var destinationPath = folder.appendPath(filePath)
         if FileManager.default.fileExists(atPath: destinationPath) {
@@ -68,7 +68,7 @@ struct OfflineLinkDownloader {
         return URL(fileURLWithPath: destinationPath)
     }
 
-    private func download(with request: URLRequest) async throws -> (URL, URLResponse) {
+    static private func download(with request: URLRequest) async throws -> (URL, URLResponse) {
         if #available(iOS 15.0, *) {
             return try await URLSession.shared.download(for: request)
         } else {
@@ -126,3 +126,12 @@ extension FileManager {
     }
 }
 
+extension URL {
+    var filePath: String {
+        if #available(iOS 16.0, *) {
+            return path(percentEncoded: false)
+        } else {
+            return path
+        }
+    }
+}
