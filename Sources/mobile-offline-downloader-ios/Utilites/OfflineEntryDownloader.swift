@@ -23,7 +23,7 @@ class OfflineEntryDownloader {
     }
 
     private func download(part: OfflineDownloaderEntryPart) async throws {
-        var rootPath = config.rootPath + "/\(entry.dataModel.type)" + "\(entry.dataModel.id)"
+        var rootPath = config.rootPath.appendPath(entry.dataModel.type).appendPath(entry.dataModel.id)
         if let index = entry.index(for: part) {
             rootPath += "/\(index)"
         }
@@ -61,7 +61,7 @@ class OfflineEntryDownloader {
             // Extract link if need
         } else {
             let url = try await OfflineLinkDownloader.download(urlString: link.link, toFolder: path)
-            let relativePath = url.absoluteString.replacingOccurrences(of: path + "/", with: "")
+            let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
             link.downloadedRelativePath = relativePath
         }
     }
