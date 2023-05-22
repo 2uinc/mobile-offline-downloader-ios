@@ -32,7 +32,7 @@ extension String {
     func removeNewLines() -> String {
         self.replacingOccurrences(of: "\n", with: "")
     }
-
+    
     func fixLink(with baseUrlString: String) -> String {
         let trimString = self.trim.removeNewLines()
         let url = URL(string: trimString, relativeTo: URL(string: baseUrlString))
@@ -48,5 +48,14 @@ extension String {
                 return trimString
             }
         }
+    }
+}
+
+import CryptoKit
+extension String {
+    func sha256() -> String? {
+        guard let data = data(using: .utf8) else { return nil }
+        let hashData = SHA256.hash(data: data)
+        return hashData.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
