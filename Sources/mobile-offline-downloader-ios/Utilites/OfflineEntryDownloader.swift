@@ -29,14 +29,21 @@ class OfflineEntryDownloader {
         }
         switch part.value {
         case let .html(html, baseURL):
+            let extractor = try OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "")
             if part.links.isEmpty {
-                let links = try await OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "").links()
+                let links = try await extractor.links()
                 part.append(links: links)
             }
-            for link in part.links where !link.isDownloaded {
-                try await download(link: link, to: rootPath)
+            for link in part.links {
+                if !link.isDownloaded {
+                    try await download(link: link, to: rootPath)
+                }
+                try extractor.setRelativePath(for: link)
             }
-            print(html)
+            let html = try extractor.finalHTML()
+            let fileName = config.indexFileName
+            let path = rootPath.appendPath(fileName)
+            try html.write(toFile: path, atomically: true, encoding: .utf8)
         case let.url(url):
             let link = OfflineDownloaderLink(link: url)
             part.append(links: [link])
@@ -60,7 +67,7 @@ class OfflineEntryDownloader {
     }
 
     private func prepare() async throws {
-        guard let helperType = config.downloadHelpers.first(where: { $0.canDownload(entry: entry) }) else { return }
+        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) }) else { return }
         try await helperType.prepareForDownload(entry: entry)
     }
 

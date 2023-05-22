@@ -5,14 +5,20 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
 
     var html: String
     var baseURL: String
+    private var document: SwiftSoup.Document
 
+    init(html: String, baseURL: String) throws {
+        self.html = html
+        self.baseURL = baseURL
+        self.document = try SwiftSoup.parse(html)
+    }
+    
     func links() async throws -> [OfflineDownloaderLink] {
         if Task.isCancelled { throw URLError(.cancelled) }
         do {
-            let doc: Document = try SwiftSoup.parse(html)
             var links: [OfflineDownloaderLink] = []
             for tag in sourceTags {
-                let tagLinks = try linksForTag(tag, in: doc)
+                let tagLinks = try linksForTag(tag)
                 links.append(contentsOf: tagLinks)
             }
             return links
@@ -20,10 +26,30 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
             throw OfflineHTMLLinksExtractorError.soupError(error: error)
         }
     }
+    
+    func setRelativePath(for link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute,
+              let relativePath = link.downloadedRelativePath
+        else { return }
+        let tags = try document.getElementsByTag(tagName)
+        for tag in tags {
+            if let linkString = try? tag.attr(attributeName),
+                !linkString.isEmpty,
+                linkString.fixLink(with: baseURL) == link.link {
+                try tag.attr(attributeName, relativePath)
+            }
+        }
+    }
+    
+    func finalHTML() throws -> String {
+        try document.html()
+    }
 
-    private func linksForTag(_ name: String, in doc: Document) throws -> [OfflineDownloaderLink] {
+    private func linksForTag(_ name: String) throws -> [OfflineDownloaderLink] {
         var links: [OfflineDownloaderLink] = []
-        let tags = try doc.getElementsByTag(name)
+        let tags = try document.getElementsByTag(name)
         for tag in tags {
             for attr in sourceAttributes {
                 if let link = try? tag.attr(attr),
