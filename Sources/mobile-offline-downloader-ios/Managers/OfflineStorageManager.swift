@@ -8,19 +8,19 @@ public class OfflineStorageManager {
         self.config = config
     }
 
-    func save<T: OfflineStorageDataProtocol>(_ object: T) {
+    public func save<T: OfflineStorageDataProtocol>(_ object: T) {
         let data = dataModel(for: object)
         // TODO: Save to database
     }
 
-    func load<T: OfflineStorageDataProtocol>(for id: String, castingType: T.Type) -> T? {
+    public func load<T: OfflineStorageDataProtocol>(for id: String, castingType: T.Type) -> T? {
         let typeString = String(describing: castingType)
         // TODO: get data from database for id and typeString
         let data = OfflineStorageDataModel(id: "testId", type: typeString, json: "{}")
         return object(from: data, for: castingType)
     }
 
-    func loadAll<T:OfflineStorageDataProtocol>(of type: T.Type) -> [T] {
+    public func loadAll<T:OfflineStorageDataProtocol>(of type: T.Type) -> [T] {
         let typeString = String(describing: type)
         // TODO: load all entries for type = typeString
         return []
