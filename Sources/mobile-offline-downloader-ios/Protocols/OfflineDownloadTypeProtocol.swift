@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol OfflineDownloadHelperProtocol {
+public protocol OfflineDownloadTypeProtocol {
     static func canDownload(entry: OfflineDownloaderEntry) -> Bool
     static func prepareForDownload(entry: OfflineDownloaderEntry) async throws
 }
