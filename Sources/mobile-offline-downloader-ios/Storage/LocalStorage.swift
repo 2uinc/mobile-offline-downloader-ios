@@ -38,10 +38,12 @@ public protocol LocalStorage {
         completionHandler: @escaping (Result<Void, Error>) -> Void
     )
     func delete<T: Storable>(
+        _ type: T.Type,
         value: T,
         completionHandler: @escaping (Result<Void, Error>) -> Void
     )
     func delete<T: Storable>(
+        _ type: T.Type,
         values: [T],
         completionHandler: @escaping (Result<Void, Error>) -> Void
     )

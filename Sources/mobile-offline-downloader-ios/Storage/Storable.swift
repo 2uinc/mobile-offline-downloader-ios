@@ -68,6 +68,6 @@ public extension Storable {
         in storage: LocalStorage,
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
-        storage.delete(value: self, completionHandler: completionHandler)
+        storage.delete(Self.self, value: self, completionHandler: completionHandler)
     }
 }

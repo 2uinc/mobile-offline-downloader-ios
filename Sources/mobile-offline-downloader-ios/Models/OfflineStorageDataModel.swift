@@ -1,10 +1,12 @@
 import Foundation
-public class OfflineStorageDataModel {
-    public var id: String
-    public var type: String
-    public var json: String
+import RealmSwift
 
-    public init(id: String, type: String, json: String) {
+public final class OfflineStorageDataModel: StoreObject, Storable {
+    @Persisted public var type: String
+    @Persisted public var json: String
+
+    public convenience init(id: String, type: String, json: String) {
+        self.init()
         self.id = id
         self.type = type
         self.json = json

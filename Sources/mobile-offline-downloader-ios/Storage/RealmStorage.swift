@@ -152,6 +152,7 @@ final public class RealmStorage: LocalStorage {
     }
 
     public func delete<T>(
+        _ type: T.Type,
         value: T,
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) where T: Storable {
@@ -164,7 +165,14 @@ final public class RealmStorage: LocalStorage {
             }
             do {
                 try realm.write {
-                    realm.delete(value)
+                    guard let value = value as? StoreObject else {
+                        return
+                    }
+                    guard let objToDelete = realm.object(
+                        ofType: type.self,
+                        forPrimaryKey: value.id
+                    ) else {  return  }
+                    realm.delete(objToDelete)
                     DispatchQueue.main.async {
                         completionHandler(.success(()))
                     }
@@ -178,6 +186,7 @@ final public class RealmStorage: LocalStorage {
     }
 
     public func delete<T>(
+        _ type: T.Type,
         values: [T],
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) where T: Storable {
@@ -192,6 +201,7 @@ final public class RealmStorage: LocalStorage {
             values.forEach {
                 group.enter()
                 self.delete(
+                    type,
                     value: $0
                 ) { _ in
                     group.leave()
