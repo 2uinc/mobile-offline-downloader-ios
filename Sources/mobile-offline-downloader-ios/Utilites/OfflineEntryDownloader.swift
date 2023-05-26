@@ -36,8 +36,35 @@ class OfflineEntryDownloader {
             }
             for link in part.links {
                 if !link.isDownloaded {
+                    
+                    if link.isVideo {
+                        // Extract links if need
+                    }
+
+                    if link.isIframe {
+                        let videoLinkExtractor = VideoLinkExtractor(link: link.link)
+                        let videoLink = try await videoLinkExtractor.getVideoLink()
+                        link.extractedLink = videoLink.url
+                        
+                        if let posterString = videoLink.posterLink {
+                            let posterLink = OfflineDownloaderLink(link: posterString)
+                            try await download(link: posterLink, to: rootPath)
+                        }
+                        
+                        //TODO: download poster, subtitles and replace
+                    }
                     print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
                     try await download(link: link, to: rootPath)
+                    
+                    if link.isCssLink {
+                        // Create CSSLoader and wait while it will finish
+                        // Parse css
+                        // Downoad all css links
+                        // Replace links in css to saved links
+                        // Copy CSS
+                        // Replace css to saved
+                        print("CSS link")
+                    }
                 }
                 try extractor.setRelativePath(for: link)
             }
@@ -53,27 +80,9 @@ class OfflineEntryDownloader {
     }
               
     private func download(link: OfflineDownloaderLink, to path: String) async throws {
-        if link.isVideo {
-            // Extract links if need
-        }
-
-        if link.isIframe {
-            // Extract link if need
-        }
-
-        let url = try await OfflineLinkDownloader.download(urlString: link.link, toFolder: path)
+        let url = try await OfflineLinkDownloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
         let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
         link.downloadedRelativePath = relativePath
-        
-        if link.isCssLink {
-            // Create CSSLoader and wait while it will finish
-            // Parse css
-            // Downoad all css links
-            // Replace links in css to saved links
-            // Copy CSS
-            // Replace css to saved
-            print("CSS link")
-        }
     }
 
     private func prepare() async throws {

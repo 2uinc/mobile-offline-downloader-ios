@@ -14,43 +14,53 @@ public class OfflineStorageManager {
         _ object: T,
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let data = dataModel(for: object) else {
-            completionHandler(.failure(OfflineStorageManagerError.text("Data model error")))
-            return
+        do {
+            let data = try dataModel(for: object)
+            storage.addOrUpdate(value: data, completionHandler: completionHandler)
+        } catch {
+            completionHandler(.failure(error))
         }
-        storage.addOrUpdate(value: data, completionHandler: completionHandler)
     }
 
     public func delete<T: OfflineStorageDataProtocol>(
         _ object: T,
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let data = dataModel(for: object) else {
-            completionHandler(.failure(OfflineStorageManagerError.text("Data model error")))
-            return
+        do {
+            let data = try dataModel(for: object)
+            storage.delete(OfflineStorageDataModel.self, value: data, completionHandler: completionHandler)
+        }catch {
+            completionHandler(.failure(error))
         }
-       storage.delete(OfflineStorageDataModel.self, value: data, completionHandler: completionHandler)
     }
 
     public func delete<T: OfflineStorageDataProtocol>(
         _ objects: [T],
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
-        let data = objects.compactMap { dataModel(for: $0) }
-        storage.delete(OfflineStorageDataModel.self, values: data, completionHandler: completionHandler)
+        do {
+            let data = try objects.compactMap { try dataModel(for: $0) }
+            storage.delete(OfflineStorageDataModel.self, values: data, completionHandler: completionHandler)
+        } catch {
+            completionHandler(.failure(error))
+        }
     }
 
     public func load<T: OfflineStorageDataProtocol>(
         for id: String,
         castingType: T.Type,
-        completionHandler: @escaping (Result<T?, Error>) -> Void
+        completionHandler: @escaping (Result<T, Error>) -> Void
     ) {
         storage.object(OfflineStorageDataModel.self, forPrimaryKey: id) { [weak self] value in
             guard let self = self, let data = value else {
                 return
             }
-            let object = self.object(from: data, for: castingType)
-            completionHandler(.success(object))
+            do {
+                let object = try self.object(from: data, for: castingType)
+                completionHandler(.success(object))
+            } catch {
+                completionHandler(.failure(error))
+            }
         }
     }
 
@@ -73,19 +83,23 @@ public class OfflineStorageManager {
             }
             switch result {
             case .success(let data):
-                completionHandler(.success(data.compactMap { self.object(from: $0, for: type) }))
+                do {
+                    completionHandler(.success(try data.compactMap { try self.object(from: $0, for: type) }))
+                } catch {
+                    completionHandler(.failure(error))
+                }
             case .failure(let error):
                 completionHandler(.failure(error))
             }
         }
     }
 
-    public func dataModel<T:OfflineStorageDataProtocol>(for object: T) -> OfflineStorageDataModel? {
-        object.toOfflineModel()
+    public func dataModel<T:OfflineStorageDataProtocol>(for object: T) throws -> OfflineStorageDataModel {
+        try object.toOfflineModel()
     }
 
-    public func object<T: OfflineStorageDataProtocol>(from data: OfflineStorageDataModel, for type: T.Type) -> T? {
-        type.fromOfflineModel(data)
+    public func object<T: OfflineStorageDataProtocol>(from data: OfflineStorageDataModel, for type: T.Type) throws -> T {
+        try type.fromOfflineModel(data)
     }
 }
 

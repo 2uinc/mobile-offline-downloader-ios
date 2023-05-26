@@ -7,8 +7,9 @@ struct OfflineLinkDownloader {
         guard let url = URL(string: urlString) else {
             throw OfflineLinkDownloaderError.wrongURL(url: urlString)
         }
-        let request = URLRequest(url: url)
-        // TODO: ask config for addition headers for url
+
+        let request = request(for: url)
+        
         do {
             let (destinationURL, response) = try await download(with: request)
             let newURL = self.destinationURL(for: url, with: response, in: folder)
@@ -19,6 +20,41 @@ struct OfflineLinkDownloader {
         } catch {
             throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
         }
+    }
+    
+    static func data(urlString: String) async throws -> Data {
+        if Task.isCancelled { throw URLError(.cancelled) }
+
+        guard let url = URL(string: urlString) else {
+            throw OfflineLinkDownloaderError.wrongURL(url: urlString)
+        }
+
+        let request = request(for: url)
+        
+        do {
+            let (data, _) = try await data(with: request)
+            return data
+        } catch {
+            throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
+        }
+    }
+    
+    static func contents(urlString: String) async throws -> String {
+        if Task.isCancelled { throw URLError(.cancelled) }
+
+        let data = try await data(urlString: urlString)
+        if let contents = String(data: data, encoding: .utf8) {
+            return contents
+        } else {
+            throw OfflineLinkDownloaderError.cantConvertData
+        }        
+    }
+    
+    static private func request(for url: URL) -> URLRequest {
+        
+        let request = URLRequest(url: url)
+        // TODO: ask config for addition headers for url (Referer and etc.)
+        return request
     }
 
     static private func path(for url: URL, with response: URLResponse) -> String {
@@ -91,6 +127,30 @@ struct OfflineLinkDownloader {
             }
         }
     }
+    
+    static private func data(with request: URLRequest) async throws -> (Data, URLResponse) {
+        if #available(iOS 15.0, *) {
+            return try await URLSession.shared.data(for: request)
+        } else {
+            var task: URLSessionDataTask?
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else if let data = data, let response = response {
+                            continuation.resume(returning: (data, response))
+                        } else {
+                            continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
+                        }
+                    })
+                    task?.resume()
+                }
+            } onCancel: { [weak task] in
+                task?.cancel()
+            }
+        }
+    }
 }
 
 extension OfflineLinkDownloader {
@@ -98,6 +158,7 @@ extension OfflineLinkDownloader {
         case unknown
         case wrongURL(url: String)
         case cantDownloadFile(url: String, error: Error)
+        case cantConvertData
 
         var errorDescription: String? {
             switch self {
@@ -107,6 +168,8 @@ extension OfflineLinkDownloader {
                 return "URL = \"\(url)\" is incorrect and couldn't be downloaded."
             case let .cantDownloadFile(url, error):
                 return "Can't download file at: \(url), with error : \(error.localizedDescription)"
+            case .cantConvertData:
+                return "Can't convert data."
             }
         }
     }
