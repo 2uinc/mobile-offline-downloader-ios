@@ -1,6 +1,17 @@
 import Foundation
 import Combine
 
+public enum OfflineDownloadsManagerEvent {
+    case statusChanged(object: OfflineDownloadsManagerEventObject)
+    case progressChanged(object: OfflineDownloadsManagerEventObject)
+}
+
+public struct OfflineDownloadsManagerEventObject {
+    public var object: OfflineStorageDataProtocol
+    public var status: OfflineDownloaderStatus
+    public var progress: Double
+}
+        
 public class OfflineDownloadsManager {
     public static var shared: OfflineDownloadsManager = .init()
 
@@ -21,7 +32,14 @@ public class OfflineDownloadsManager {
 
     var downloaders: [OfflineEntryDownloader] = []
     private var cancellables: [AnyCancellable] = []
-
+    private var sourcePublisher: PassthroughSubject<OfflineDownloadsManagerEvent, Never> = .init()
+    lazy public var publisher: AnyPublisher<OfflineDownloadsManagerEvent, Never> =  {
+        sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .share()
+            .eraseToAnyPublisher()
+    }()
+    
     public func setConfig(_ config: OfflineDownloaderConfig) {
         self.config = config
     }
@@ -67,7 +85,7 @@ public class OfflineDownloadsManager {
 
     public func isDownloaded<T: OfflineDownloadTypeProtocol>(object: T, completionHandler: @escaping (Result<Bool, Error>) -> Void) {
         do {
-            let dataModel = try OfflineStorageManager.shared.dataModel(for: object)
+            let dataModel = try object.toOfflineModel()
             let id = dataModel.id + "_" + dataModel.type
             OfflineStorageManager.shared.load(for: id, castingType: OfflineDownloaderEntry.self) { result in
                 switch result {
@@ -87,15 +105,20 @@ public class OfflineDownloadsManager {
         
         downloader.publisher(for: \.progress.fractionCompleted)
             .receive(on: DispatchQueue.main)
-            .sink { fractionCompleted in
+            .sink {[weak self, weak downloader] fractionCompleted in
+                guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
 
-                print("ALARM: fractionCompleted = \(fractionCompleted)")
+                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: downloader.progress.fractionCompleted)
+                self?.sourcePublisher.send(.progressChanged(object: publisherObject))
             }
             .store(in: &cancellables)
         downloader.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
-            .sink {[weak entry] status in
-                print("ALARM: status = \(status)")
+            .sink {[weak self, weak entry, weak downloader] status in
+                guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
+
+                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: downloader.progress.fractionCompleted)
+                self?.sourcePublisher.send(.statusChanged(object: publisherObject))
                 switch status {
                 case .completed:
                     guard let entry = entry else { return }
@@ -106,6 +129,15 @@ public class OfflineDownloadsManager {
             }
             .store(in: &cancellables)
         return downloader
+    }
+    
+    func object(for data: OfflineStorageDataModel) -> OfflineDownloadTypeProtocol? {
+        for type in config.downloadTypes {
+            if let object = try? type.fromOfflineModel(data) {
+                return object
+            }
+        }
+        return nil
     }
     
     func getDownloader(for entry: OfflineDownloaderEntry) -> OfflineEntryDownloader? {

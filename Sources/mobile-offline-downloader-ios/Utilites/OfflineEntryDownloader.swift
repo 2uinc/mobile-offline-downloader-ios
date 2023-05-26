@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-@objc enum OfflineDownloaderStatus: Int {
+@objc public enum OfflineDownloaderStatus: Int {
     case initialized, preparing, paused, active, completed, cancelled
 
     var canResume: Bool {
