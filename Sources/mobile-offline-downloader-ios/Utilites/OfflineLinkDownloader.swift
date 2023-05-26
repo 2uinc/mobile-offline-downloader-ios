@@ -159,6 +159,14 @@ class OfflineLinkDownloader {
             }
         }
     }
+    
+    static func download(link: OfflineDownloaderLink, to path: String, with mainProgress: Progress?) async throws {
+        let downloader = OfflineLinkDownloader()
+        mainProgress?.addChild(downloader.progress, withPendingUnitCount: 1)
+        let url = try await downloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
+        let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
+        link.downloadedRelativePath = relativePath
+    }
 }
 
 extension OfflineLinkDownloader {

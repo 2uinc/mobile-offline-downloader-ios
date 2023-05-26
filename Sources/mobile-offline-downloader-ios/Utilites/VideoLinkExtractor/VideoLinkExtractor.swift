@@ -1,6 +1,6 @@
 import Foundation
 
-struct VideoLink {
+struct VideoLink: Codable {
     var name: String
     var url: String
     var isAudio: Bool
@@ -9,7 +9,7 @@ struct VideoLink {
     var tracks: [VideoTrack] = []
 }
 
-struct VideoTrack {
+struct VideoTrack: Codable {
     var name: String
     var language: String
     var contents: String

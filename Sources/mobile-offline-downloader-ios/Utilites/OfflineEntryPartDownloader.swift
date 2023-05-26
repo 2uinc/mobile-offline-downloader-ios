@@ -31,23 +31,12 @@ class OfflineEntryPartDownloader {
 
             for link in part.links {
                 if !link.isDownloaded {
-                    
-                    if link.isVideo {
-                        // Extract links if need
-                    }
-                    
-                    if link.isIframe {
+                    if shouldUseVideoDownloader(for: link) {
                         let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
                         progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
-                        let result = try await videoDownloader.download()
-                        //TODO: download poster, subtitles and replace
-                    }
-                    print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
-                    // TODO: add progress for file
-                    try await download(link: link, to: rootPath)
-                    // TODO: add progress for file
-                    
-                    if link.isCssLink {
+                        try await videoDownloader.download()
+                    } else if link.isCssLink {
+                        print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
                         // Create CSSLoader and wait while it will finish
                         // Parse css
                         // Downoad all css links
@@ -55,10 +44,13 @@ class OfflineEntryPartDownloader {
                         // Copy CSS
                         // Replace css to saved
                         print("CSS link")
+                    } else {
+                        try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
                     }
                 } else {
                     progress.completedUnitCount += 1
                 }
+
                 try extractor.setRelativePath(for: link)
             }
             let html = try extractor.finalHTML()
@@ -69,15 +61,19 @@ class OfflineEntryPartDownloader {
             progress.totalUnitCount = 1
             let link = OfflineDownloaderLink(link: url)
             part.append(links: [link])
-            try await download(link: link, to: rootPath)
+            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
         }
     }
     
-    private func download(link: OfflineDownloaderLink, to path: String) async throws {
-        let downloader = OfflineLinkDownloader()
-        progress.addChild(downloader.progress, withPendingUnitCount: 1)
-        let url = try await downloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
-        let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
-        link.downloadedRelativePath = relativePath
+    private func shouldUseVideoDownloader(for link: OfflineDownloaderLink) -> Bool {
+        if link.isVideo && link.attribute == "data-setup" {
+            return true
+        }
+
+        if link.isIframe {
+            return true
+        }
+
+        return false
     }
 }

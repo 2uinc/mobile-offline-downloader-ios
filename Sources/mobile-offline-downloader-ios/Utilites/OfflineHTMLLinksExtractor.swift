@@ -33,6 +33,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
               let attributeName = link.attribute,
               let relativePath = link.downloadedRelativePath
         else { return }
+        // TODO: Replace video tag link.videoLink != nil
         let tags = try document.getElementsByTag(tagName)
         for tag in tags {
             if let linkString = try? tag.attr(attributeName),

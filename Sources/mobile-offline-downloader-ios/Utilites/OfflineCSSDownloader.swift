@@ -1,7 +1,10 @@
 import Foundation
 
-struct OfflineCSSDownloader {
-    static func download(cssPath: String, toFolder folder: String) async throws {
+struct OfflineCSSLinkDownloader {
+    var link: OfflineDownloaderLink
+    var progress: Progress = Progress()
+
+    func download(to path: String) async throws {
         
     }
 }
