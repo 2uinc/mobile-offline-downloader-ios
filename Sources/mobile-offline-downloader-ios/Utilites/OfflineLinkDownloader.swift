@@ -1,7 +1,9 @@
 import Foundation
 
-struct OfflineLinkDownloader {
-    static func download(urlString: String, toFolder folder: String) async throws -> URL {
+class OfflineLinkDownloader {
+    var progress: Progress = Progress(totalUnitCount: 1)
+    func download(urlString: String, toFolder folder: String) async throws -> URL {
+        progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
         guard let url = URL(string: urlString) else {
@@ -22,7 +24,8 @@ struct OfflineLinkDownloader {
         }
     }
     
-    static func data(urlString: String) async throws -> Data {
+    func data(urlString: String) async throws -> Data {
+        progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
         guard let url = URL(string: urlString) else {
@@ -39,7 +42,8 @@ struct OfflineLinkDownloader {
         }
     }
     
-    static func contents(urlString: String) async throws -> String {
+    func contents(urlString: String) async throws -> String {
+        progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
         let data = try await data(urlString: urlString)
@@ -47,17 +51,17 @@ struct OfflineLinkDownloader {
             return contents
         } else {
             throw OfflineLinkDownloaderError.cantConvertData
-        }        
+        }
     }
     
-    static private func request(for url: URL) -> URLRequest {
+    private func request(for url: URL) -> URLRequest {
         
         let request = URLRequest(url: url)
         // TODO: ask config for addition headers for url (Referer and etc.)
         return request
     }
 
-    static private func path(for url: URL, with response: URLResponse) -> String {
+    private func path(for url: URL, with response: URLResponse) -> String {
         let path = url.path
         if let last = path.components(separatedBy: "/").last,
            last.contains(".") {
@@ -81,7 +85,7 @@ struct OfflineLinkDownloader {
         }
     }
 
-    static private func alterFilePath(_ filePath: String) -> String {
+    private func alterFilePath(_ filePath: String) -> String {
         var components = filePath.components(separatedBy: "/")
         if let fileName = components.last {
             var fileNameComponents = fileName.components(separatedBy: ".")
@@ -95,7 +99,7 @@ struct OfflineLinkDownloader {
         return components.joined(separator: "/")
     }
 
-    static private func destinationURL(for url: URL, with response: URLResponse, in folder: String) -> URL {
+    private func destinationURL(for url: URL, with response: URLResponse, in folder: String) -> URL {
         let filePath = path(for: url, with: response)
         var destinationPath = folder.appendPath(filePath)
         if FileManager.default.fileExists(atPath: destinationPath) {
@@ -104,31 +108,30 @@ struct OfflineLinkDownloader {
         return URL(fileURLWithPath: destinationPath)
     }
 
-    static private func download(with request: URLRequest) async throws -> (URL, URLResponse) {
-        if #available(iOS 15.0, *) {
-            return try await URLSession.shared.download(for: request)
-        } else {
-            var task: URLSessionDownloadTask?
-            return try await withTaskCancellationHandler {
-                try await withCheckedThrowingContinuation { continuation in
-                    task = URLSession.shared.downloadTask(with: request) { url, response, error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else if let url = url, let response = response {
-                            continuation.resume(returning: (url, response))
-                        } else {
-                            continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
-                        }
+    private func download(with request: URLRequest) async throws -> (URL, URLResponse) {
+        var task: URLSessionDownloadTask?
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                task = URLSession.shared.downloadTask(with: request) { url, response, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else if let url = url, let response = response {
+                        continuation.resume(returning: (url, response))
+                    } else {
+                        continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
                     }
-                    task?.resume()
                 }
-            } onCancel: { [weak task] in
-                task?.cancel()
+                if let taskProgress = task?.progress {
+                    progress.addChild(taskProgress, withPendingUnitCount: 1)
+                }
+                task?.resume()
             }
+        } onCancel: { [weak task] in
+            task?.cancel()
         }
     }
     
-    static private func data(with request: URLRequest) async throws -> (Data, URLResponse) {
+    private func data(with request: URLRequest) async throws -> (Data, URLResponse) {
         if #available(iOS 15.0, *) {
             return try await URLSession.shared.data(for: request)
         } else {
@@ -144,6 +147,11 @@ struct OfflineLinkDownloader {
                             continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
                         }
                     })
+
+                    if let taskProgress = task?.progress {
+                        progress.addChild(taskProgress, withPendingUnitCount: 1)
+                    }
+
                     task?.resume()
                 }
             } onCancel: { [weak task] in

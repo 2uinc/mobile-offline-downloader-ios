@@ -1,8 +1,25 @@
 import Foundation
-class OfflineEntryDownloader {
+import Combine
+
+@objc enum OfflineDownloaderStatus: Int {
+    case initialized, preparing, paused, active, completed, cancelled
+
+    var canResume: Bool {
+        return self == .paused
+    }
+
+    var canStart: Bool {
+        return self == .initialized || self == .paused
+    }
+}
+
+class OfflineEntryDownloader: NSObject {
     var config: OfflineDownloaderConfig
     var entry: OfflineDownloaderEntry
     private var task: Task<(), Never>?
+    @objc dynamic var progress: Progress = Progress()
+
+    @objc dynamic var status: OfflineDownloaderStatus = .initialized
 
     init(entry: OfflineDownloaderEntry, config: OfflineDownloaderConfig) {
         self.entry = entry
@@ -12,10 +29,16 @@ class OfflineEntryDownloader {
     func start() {
         task = Task {
             do {
+                status = .preparing
                 try await prepare()
+                status = .active
+                progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
                     try await download(part: part)
                 }
+                entry.isDownloaded = true
+                status = .completed
+                // TODO: Save to database
             } catch {
                 print("error = \(error)")
             }
@@ -27,62 +50,10 @@ class OfflineEntryDownloader {
         if let index = entry.index(for: part) {
             rootPath += "/\(index)"
         }
-        switch part.value {
-        case let .html(html, baseURL):
-            let extractor = try OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "")
-            if part.links.isEmpty {
-                let links = try await extractor.links()
-                part.append(links: links)
-            }
-            for link in part.links {
-                if !link.isDownloaded {
-                    
-                    if link.isVideo {
-                        // Extract links if need
-                    }
-
-                    if link.isIframe {
-                        let videoLinkExtractor = VideoLinkExtractor(link: link.link)
-                        let videoLink = try await videoLinkExtractor.getVideoLink()
-                        link.extractedLink = videoLink.url
-                        
-                        if let posterString = videoLink.posterLink {
-                            let posterLink = OfflineDownloaderLink(link: posterString)
-                            try await download(link: posterLink, to: rootPath)
-                        }
-                        
-                        //TODO: download poster, subtitles and replace
-                    }
-                    print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
-                    try await download(link: link, to: rootPath)
-                    
-                    if link.isCssLink {
-                        // Create CSSLoader and wait while it will finish
-                        // Parse css
-                        // Downoad all css links
-                        // Replace links in css to saved links
-                        // Copy CSS
-                        // Replace css to saved
-                        print("CSS link")
-                    }
-                }
-                try extractor.setRelativePath(for: link)
-            }
-            let html = try extractor.finalHTML()
-            let fileName = config.indexFileName
-            let path = rootPath.appendPath(fileName)
-            try html.write(toFile: path, atomically: true, encoding: .utf8)
-        case let.url(url):
-            let link = OfflineDownloaderLink(link: url)
-            part.append(links: [link])
-            try await download(link: link, to: rootPath)
-        }
-    }
-              
-    private func download(link: OfflineDownloaderLink, to path: String) async throws {
-        let url = try await OfflineLinkDownloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
-        let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
-        link.downloadedRelativePath = relativePath
+        
+        let downloader = OfflineEntryPartDownloader(part: part, rootPath: rootPath, htmlIndexName: config.indexFileName)
+        progress.addChild(downloader.progress, withPendingUnitCount: 1)
+        try await downloader.download()
     }
 
     private func prepare() async throws {
@@ -92,5 +63,15 @@ class OfflineEntryDownloader {
 
     func cancel() {
         task?.cancel()
+        status = .cancelled
+    }
+    
+    func pause() {
+        task?.cancel()
+        status = .paused
+    }
+    
+    func resume() {
+        start()
     }
 }

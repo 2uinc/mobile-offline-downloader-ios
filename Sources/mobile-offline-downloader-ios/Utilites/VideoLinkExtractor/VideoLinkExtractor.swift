@@ -37,7 +37,8 @@ struct VideoLinkExtractor {
     private func getContents(for urlString: String) async throws -> String {
         if Task.isCancelled { throw URLError(.cancelled) }
         do {
-            return try await OfflineLinkDownloader.contents(urlString: urlString)
+            let downloader = OfflineLinkDownloader()
+            return try await downloader.contents(urlString: urlString)
         } catch {
             throw VideoLinkExtractorError.cantGetContents(
                 src: urlString,
