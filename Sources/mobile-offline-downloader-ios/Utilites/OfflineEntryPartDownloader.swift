@@ -37,15 +37,9 @@ class OfflineEntryPartDownloader {
                     }
                     
                     if link.isIframe {
-                        let videoLinkExtractor = VideoLinkExtractor(link: link.link)
-                        let videoLink = try await videoLinkExtractor.getVideoLink()
-                        link.extractedLink = videoLink.url
-                        
-                        if let posterString = videoLink.posterLink {
-                            let posterLink = OfflineDownloaderLink(link: posterString)
-                            try await download(link: posterLink, to: rootPath, includeToProgress: false)
-                        }
-                        
+                        let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
+                        progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
+                        let result = try await videoDownloader.download()
                         //TODO: download poster, subtitles and replace
                     }
                     print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
@@ -79,11 +73,9 @@ class OfflineEntryPartDownloader {
         }
     }
     
-    private func download(link: OfflineDownloaderLink, to path: String, includeToProgress: Bool = true) async throws {
+    private func download(link: OfflineDownloaderLink, to path: String) async throws {
         let downloader = OfflineLinkDownloader()
-        if includeToProgress {
-            progress.addChild(downloader.progress, withPendingUnitCount: 1)
-        }
+        progress.addChild(downloader.progress, withPendingUnitCount: 1)
         let url = try await downloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
         let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")
         link.downloadedRelativePath = relativePath
