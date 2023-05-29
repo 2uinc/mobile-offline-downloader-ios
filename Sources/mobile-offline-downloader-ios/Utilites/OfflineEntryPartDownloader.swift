@@ -32,25 +32,7 @@ class OfflineEntryPartDownloader {
                 progress.totalUnitCount = Int64(part.links.count)
             }
 
-            for link in part.links {
-                if !link.isDownloaded {
-                    if shouldUseVideoDownloader(for: link) {
-                        let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
-                        progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
-                        try await videoDownloader.download()
-                    } else if link.isCssLink {
-                        let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS)
-                        progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
-                        try await cssDownloader.download()
-                    } else {
-                        try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
-                    }
-                } else {
-                    progress.completedUnitCount += 1
-                }
-
-                try extractor.setRelativePath(for: link)
-            }
+            try await downloadLinks(with: extractor)
             let html = try extractor.finalHTML()
             let path = rootPath.appendPath(htmlIndexName)
             try html.write(toFile: path, atomically: true, encoding: .utf8)
@@ -60,6 +42,28 @@ class OfflineEntryPartDownloader {
             let link = OfflineDownloaderLink(link: url)
             part.append(links: [link])
             try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
+        }
+    }
+    
+    private func downloadLinks(with extractor: OfflineHTMLLinksExtractor) async throws {
+        for link in part.links {
+            if !link.isDownloaded {
+                if shouldUseVideoDownloader(for: link) {
+                    let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
+                    progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
+                    try await videoDownloader.download()
+                } else if link.isCssLink {
+                    let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS)
+                    progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
+                    try await cssDownloader.download()
+                } else {
+                    try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
+                }
+            } else {
+                progress.completedUnitCount += 1
+            }
+
+            try extractor.setRelativePath(for: link)
         }
     }
     
