@@ -15,7 +15,11 @@ public struct OfflineDownloadsManagerEventObject {
 public class OfflineDownloadsManager {
     public static var shared: OfflineDownloadsManager = .init()
 
-    var config: OfflineDownloaderConfig = OfflineDownloaderConfig()
+    var config: OfflineDownloaderConfig = OfflineDownloaderConfig() {
+        didSet {
+            updateFolder()
+        }
+    }
 
     var entries: [OfflineDownloaderEntry] = []
     var activeEntries: [OfflineDownloaderEntry] {
@@ -39,6 +43,25 @@ public class OfflineDownloadsManager {
             .share()
             .eraseToAnyPublisher()
     }()
+    
+    init() {
+        updateFolder()
+    }
+    
+    private func updateFolder() {
+        do {
+                // exclude from cloud backup
+            var cacheURL = URL(fileURLWithPath: config.rootPath, isDirectory: true)
+            let existingValues = try cacheURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+            if existingValues.isExcludedFromBackup == false || existingValues.isExcludedFromBackup == nil {
+                var resourceValues = URLResourceValues()
+                resourceValues.isExcludedFromBackup = true
+                try cacheURL.setResourceValues(resourceValues)
+            }
+        } catch {
+            print("Create module cache directory error: " + error.localizedDescription)
+        }
+    }
     
     public func setConfig(_ config: OfflineDownloaderConfig) {
         self.config = config
