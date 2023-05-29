@@ -1,19 +1,20 @@
 import Foundation
 
 public protocol OfflineStorageDataProtocol {
-    func toOfflineModel() -> OfflineStorageDataModel
-    static func fromOfflineModel(_ model: OfflineStorageDataModel) -> Self?
+    func toOfflineModel() throws -> OfflineStorageDataModel
+    static func fromOfflineModel(_ model: OfflineStorageDataModel) throws -> Self
 }
 
-//protocol OfflineStorageHelperProtocol {
-//    associatedtype OfflineObject
-//
-//    func toOfflineModel<T: OfflineStorageDataModel>(_ object: T) -> OfflineStorageDataModel
-//    func fromOfflineModel(_ model: OfflineStorageDataModel) -> OfflineObject?
-//}
-//
-//extension OfflineStorageDataProtocol {
-//    var offlineType: OfflineObject.Type {
-//        OfflineObject.self
-//    }
-//}
+public enum OfflineStorageDataError: Error, LocalizedError {
+    case cantConvertToData
+    case cantCreateObject(type: Any.Type)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .cantConvertToData:
+            return "Can't convert to data object."
+        case let .cantCreateObject(type: type):
+            return "Can't create object \(type) from data."
+        }
+    }
+}

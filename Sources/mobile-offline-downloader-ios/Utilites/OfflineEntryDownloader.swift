@@ -1,8 +1,25 @@
 import Foundation
-class OfflineEntryDownloader {
+import Combine
+
+@objc public enum OfflineDownloaderStatus: Int {
+    case initialized, preparing, paused, active, completed, cancelled
+
+    var canResume: Bool {
+        return self == .paused
+    }
+
+    var canStart: Bool {
+        return self == .initialized || self == .paused
+    }
+}
+
+class OfflineEntryDownloader: NSObject {
     var config: OfflineDownloaderConfig
     var entry: OfflineDownloaderEntry
     private var task: Task<(), Never>?
+    @objc dynamic var progress: Progress = Progress()
+
+    @objc dynamic var status: OfflineDownloaderStatus = .initialized
 
     init(entry: OfflineDownloaderEntry, config: OfflineDownloaderConfig) {
         self.entry = entry
@@ -12,54 +29,49 @@ class OfflineEntryDownloader {
     func start() {
         task = Task {
             do {
-                await prepare()
+                status = .preparing
+                try await prepare()
+                status = .active
+                progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
-                    switch part.value {
-                    case let .html(html, baseURL):
-                        if part.links.isEmpty {
-                            let links = try await OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "").links()
-                            part.append(links: links)
-                        }
-                        
-                        for link in part.links where !link.isDownloaded {
-                            
-                        }
-                        print(html)
-                    case let.url(url):
-                        print(url)
-                    }
+                    try await download(part: part)
                 }
+                entry.isDownloaded = true
+                status = .completed
+                // TODO: Save to database
             } catch {
                 print("error = \(error)")
             }
         }
     }
 
-    func download(link: OfflineDownloaderLink, to path: String) async throws {
-        if link.isCssLink {
-            // Create CSSLoader and wait while it will finish
-        } else if link.isVideo {
-            // Extract links if need
-        } else if link.isIframe {
-            // Extract link if need
-        } else {
-
+    private func download(part: OfflineDownloaderEntryPart) async throws {
+        var rootPath = config.rootPath.appendPath(entry.dataModel.type).appendPath(entry.dataModel.id)
+        if let index = entry.index(for: part) {
+            rootPath += "/\(index)"
         }
+        
+        let downloader = OfflineEntryPartDownloader(part: part, rootPath: rootPath, htmlIndexName: config.indexFileName)
+        progress.addChild(downloader.progress, withPendingUnitCount: 1)
+        try await downloader.download()
     }
 
-    private func prepare() async {
-//        await withCheckedContinuation {[weak self] continuation in
-//            guard let self = self else {
-//                continuation.resume()
-//                return
-//            }
-//            self.config.preparationBlock?(self.entry) {
-//                continuation.resume()
-//            }
-//        }
+    private func prepare() async throws {
+        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) }) else { return }
+        try await helperType.prepareForDownload(entry: entry)
     }
 
     func cancel() {
         task?.cancel()
+        status = .cancelled
+    }
+    
+    func pause() {
+        task?.cancel()
+        status = .paused
+    }
+    
+    func resume() {
+        start()
     }
 }
