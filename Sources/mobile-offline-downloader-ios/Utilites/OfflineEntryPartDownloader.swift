@@ -17,6 +17,7 @@ class OfflineEntryPartDownloader {
         switch part.value {
         case let .html(html, baseURL):
             let extractor = try OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "")
+            try FileManager.default.createDirectoryAt(path: rootPath)
             if Task.isCancelled { throw URLError(.cancelled) }
             if part.links.isEmpty {
                 let links = try await extractor.links()
