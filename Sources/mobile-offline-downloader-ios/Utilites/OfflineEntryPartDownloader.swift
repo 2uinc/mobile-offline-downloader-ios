@@ -4,12 +4,14 @@ class OfflineEntryPartDownloader {
     var part: OfflineDownloaderEntryPart
     var rootPath: String
     var htmlIndexName: String
+    var shouldCacheCSS: Bool
     var progress: Progress = Progress()
     
-    init(part: OfflineDownloaderEntryPart, rootPath: String, htmlIndexName: String) {
+    init(part: OfflineDownloaderEntryPart, rootPath: String, htmlIndexName: String, shouldCacheCSS: Bool = false) {
         self.part = part
         self.rootPath = rootPath
         self.htmlIndexName = htmlIndexName
+        self.shouldCacheCSS = shouldCacheCSS
     }
     
     func download() async throws {
@@ -37,14 +39,9 @@ class OfflineEntryPartDownloader {
                         progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
                         try await videoDownloader.download()
                     } else if link.isCssLink {
-                        print("ALARM: \(link.link.hashValue) \(link.link.sha256())")
-                        // Create CSSLoader and wait while it will finish
-                        // Parse css
-                        // Downoad all css links
-                        // Replace links in css to saved links
-                        // Copy CSS
-                        // Replace css to saved
-                        print("CSS link")
+                        let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS)
+                        progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
+                        try await cssDownloader.download()
                     } else {
                         try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
                     }
