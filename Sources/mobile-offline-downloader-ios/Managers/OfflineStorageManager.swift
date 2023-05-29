@@ -53,6 +53,7 @@ public class OfflineStorageManager {
     ) {
         storage.object(OfflineStorageDataModel.self, forPrimaryKey: id) { [weak self] value in
             guard let self = self, let data = value else {
+                completionHandler(.failure(OfflineStorageManagerError.text("Data not found")))
                 return
             }
             do {
@@ -83,11 +84,7 @@ public class OfflineStorageManager {
             }
             switch result {
             case .success(let data):
-                do {
-                    completionHandler(.success(try data.compactMap { try self.object(from: $0, for: type) }))
-                } catch {
-                    completionHandler(.failure(error))
-                }
+                completionHandler(.success(data.compactMap { try? self.object(from: $0, for: type) }))
             case .failure(let error):
                 completionHandler(.failure(error))
             }

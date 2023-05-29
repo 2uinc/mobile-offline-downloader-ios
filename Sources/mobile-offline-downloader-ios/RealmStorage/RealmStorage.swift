@@ -144,6 +144,7 @@ final public class RealmStorage: LocalStorage {
             let results = ThreadSafeReference(to: object)
             DispatchQueue.main.async {
                 guard let resultsMain = self?.realm?.resolve(results) else {
+                    completionHandler(nil)
                     return
                 }
                 completionHandler(resultsMain)
