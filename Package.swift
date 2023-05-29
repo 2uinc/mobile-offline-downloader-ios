@@ -25,7 +25,7 @@ let package = Package(
             dependencies: [
                 "SwiftSoup",
                 .product(name: "Realm", package: "realm-swift"),
-                .product(name: "RealmSwift", package: "realm-swift"),
+                .product(name: "RealmSwift", package: "realm-swift")
             ]
         ),
         .testTarget(
