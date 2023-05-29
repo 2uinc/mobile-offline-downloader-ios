@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @objc public enum OfflineDownloaderStatus: Int {
-    case initialized, preparing, paused, active, completed, cancelled
+    case initialized, preparing, paused, active, completed, cancelled, removed
 
     var canResume: Bool {
         return self == .paused
@@ -46,7 +46,7 @@ class OfflineEntryDownloader: NSObject {
     }
 
     private func download(part: OfflineDownloaderEntryPart) async throws {
-        var rootPath = config.rootPath.appendPath(entry.dataModel.type).appendPath(entry.dataModel.id)
+        var rootPath = entry.rootPath(with: config.rootPath)
         if let index = entry.index(for: part) {
             rootPath += "/\(index)"
         }

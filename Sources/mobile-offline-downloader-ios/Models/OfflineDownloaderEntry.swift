@@ -24,6 +24,10 @@ public final class OfflineDownloaderEntry: Codable {
     public func index(for part: OfflineDownloaderEntryPart) -> Int? {
         return parts.firstIndex(of: part)
     }
+    
+    public func rootPath(with mainPath: String) -> String {
+        mainPath.appendPath(dataModel.type).appendPath(dataModel.id)
+    }
 
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {

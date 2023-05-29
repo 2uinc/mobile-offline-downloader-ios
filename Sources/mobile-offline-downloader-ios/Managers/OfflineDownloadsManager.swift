@@ -44,17 +44,43 @@ public class OfflineDownloadsManager {
         self.config = config
     }
 
-    public func addAndStart(entry: OfflineDownloaderEntry) {
+    public func addAndStart(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil else { return }
         entries.append(entry)
         start(entry: entry)
     }
 
-    public func remove(entry: OfflineDownloaderEntry) {
-
+    public func remove(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
+            let managerEntry = entries[index]
+            if let downloader = getDownloader(for: managerEntry) {
+                downloader.cancel()
+                
+                if let index = downloaders.firstIndex(of: downloader) {
+                    downloaders.remove(at: index)
+                }
+            }
+            entries.remove(at: index)
+        }
+        let path = entry.rootPath(with: config.rootPath)
+        try FileManager.default.removeItem(atPath: path)
+        
+        OfflineStorageManager.shared.delete(entry) {[weak self] result in
+            if case .success = result {
+                OfflineStorageManager.shared.delete(object) {[weak self] result in
+                    if case .success = result {
+                        let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: .removed, progress: 0)
+                        self?.sourcePublisher.send(.statusChanged(object: publisherObject))
+                    }
+                }
+            }
+        }
     }
 
-    public func start(entry: OfflineDownloaderEntry) {
+    private func start(entry: OfflineDownloaderEntry) {
+        guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) != nil else { return }
         if !entry.isDownloaded && activeEntries.count < config.limitOfConcurrentDownloads {
             if let downloader = getDownloader(for: entry) {
                 if downloader.status.canStart {
@@ -76,6 +102,10 @@ public class OfflineDownloadsManager {
 
     }
 
+    public func resume(entry: OfflineDownloaderEntry) {
+        
+    }
+    
     func getEntry(for id: String, type: String) -> OfflineDownloaderEntry? {
         entries.first {
             $0.dataModel.id == id &&
