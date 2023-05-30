@@ -167,12 +167,20 @@ final public class RealmStorage: LocalStorage {
             do {
                 try realm.write {
                     guard let value = value as? StoreObject else {
+                        DispatchQueue.main.async {
+                            completionHandler(.failure(RealmError.error))
+                        }
                         return
                     }
                     guard let objToDelete = realm.object(
                         ofType: type.self,
                         forPrimaryKey: value.id
-                    ) else {  return  }
+                    ) else {
+                        DispatchQueue.main.async {
+                            completionHandler(.failure(RealmError.error))
+                        }
+                        return
+                    }
                     realm.delete(objToDelete)
                     DispatchQueue.main.async {
                         completionHandler(.success(()))

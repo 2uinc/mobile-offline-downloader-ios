@@ -74,7 +74,7 @@ public class OfflineDownloadsManager {
         start(entry: entry)
     }
 
-    public func remove(object: OfflineDownloadTypeProtocol) throws {
+    public func delete(object: OfflineDownloadTypeProtocol) throws {
         let entry = try object.downloaderEntry()
         if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
             let managerEntry = entries[index]
@@ -92,12 +92,8 @@ public class OfflineDownloadsManager {
         
         OfflineStorageManager.shared.delete(entry) {[weak self] result in
             if case .success = result {
-                OfflineStorageManager.shared.delete(object) {[weak self] result in
-                    if case .success = result {
-                        let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: .removed, progress: 0)
-                        self?.sourcePublisher.send(.statusChanged(object: publisherObject))
-                    }
-                }
+                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: .removed, progress: 0)
+                self?.sourcePublisher.send(.statusChanged(object: publisherObject))
             }
         }
     }
