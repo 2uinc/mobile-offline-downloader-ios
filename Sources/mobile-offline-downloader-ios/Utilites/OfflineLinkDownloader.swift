@@ -57,8 +57,8 @@ class OfflineLinkDownloader {
         return request
     }
 
-    private func path(for url: URL, with response: URLResponse) -> String {
-        let path = url.path
+    private func path(with response: URLResponse) -> String {
+        let path = response.url?.path ?? response.suggestedFilename ?? "\(Date().timeIntervalSince1970).tmp"
         if let last = path.components(separatedBy: "/").last,
            last.contains(".") {
             if response.mimeType?.contains("mp4") == true {
@@ -95,13 +95,13 @@ class OfflineLinkDownloader {
         return components.joined(separator: "/")
     }
 
-    private func destinationURL(for url: URL, with response: URLResponse, in folder: String) -> URL {
-        let filePath = path(for: url, with: response)
+    private func destinationURL(with response: URLResponse, in folder: String) -> URL {
+        let filePath = path(with: response)
         var destinationPath = folder.appendPath(filePath)
         if FileManager.default.fileExists(atPath: destinationPath) {
             destinationPath = alterFilePath(destinationPath)
         }
-        return URL(fileURLWithPath: destinationPath)
+        return destinationPath.fileURL()
     }
 
     private func download(with request: URLRequest, toFolder folder: String) async throws -> URL {
@@ -112,7 +112,7 @@ class OfflineLinkDownloader {
                     if let error = error {
                         continuation.resume(throwing: error)
                     } else if let url = url, let response = response, let self = self {
-                        let newURL = self.destinationURL(for: url, with: response, in: folder)
+                        let newURL = self.destinationURL(with: response, in: folder)
                         do {
                             try FileManager.default.createDirectoryAt(path: newURL.path)
                             try FileManager.default.moveItem(at: url, to: newURL)

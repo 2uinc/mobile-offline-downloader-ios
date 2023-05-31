@@ -49,6 +49,14 @@ extension String {
             }
         }
     }
+    
+    func fileURL(isDirectory: Bool = false) -> URL {
+        if #available(iOS 16.0, *) {
+            return URL(filePath: self, directoryHint: isDirectory ? .isDirectory : .checkFileSystem)
+        } else {
+            return URL(fileURLWithPath: self, isDirectory: isDirectory)
+        }
+    }
 }
 
 import CryptoKit

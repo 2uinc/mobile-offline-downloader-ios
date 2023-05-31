@@ -5,6 +5,12 @@ public enum OfflineDownloaderEntryValue: Equatable {
     case url(String)
 }
 
+public enum OfflineDownloaderSavedValue: Equatable {
+    case html(indexURL: URL, folderURL: URL)
+    case localURL(URL)
+    case unknown
+}
+
 extension OfflineDownloaderEntryValue: Codable {
     private enum CodingKeys : String, CodingKey {
         case type

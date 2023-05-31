@@ -51,7 +51,7 @@ public class OfflineDownloadsManager {
     private func updateFolder() {
         do {
                 // exclude from cloud backup
-            var cacheURL = URL(fileURLWithPath: config.rootPath, isDirectory: true)
+            var cacheURL = config.rootPath.fileURL(isDirectory: true)
             let existingValues = try cacheURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
             if existingValues.isExcludedFromBackup == false || existingValues.isExcludedFromBackup == nil {
                 var resourceValues = URLResourceValues()
@@ -133,19 +133,42 @@ public class OfflineDownloadsManager {
     }
 
     public func isDownloaded<T: OfflineDownloadTypeProtocol>(object: T, completionHandler: @escaping (Result<Bool, Error>) -> Void) {
+        savedEntry(for: object) { result in
+            switch result {
+            case .success(let entry):
+                completionHandler(.success(entry.isDownloaded))
+            case .failure(let error):
+                completionHandler(.failure(error))
+            }
+        }
+    }
+    
+    public func savedEntry<T: OfflineDownloadTypeProtocol>(for object: T, completionHandler: @escaping(Result<OfflineDownloaderEntry, Error>) -> Void) {
         do {
             let dataModel = try object.toOfflineModel()
             let id = dataModel.id + "_" + dataModel.type
             OfflineStorageManager.shared.load(for: id, castingType: OfflineDownloaderEntry.self) { result in
-                switch result {
-                case .success(let entry):
-                    completionHandler(.success(entry.isDownloaded))
-                case .failure(let error):
-                    completionHandler(.failure(error))
-                }
+                completionHandler(result)
             }
         } catch {
             completionHandler(.failure(error))
+        }
+    }
+    
+    public func savedValue(for entry: OfflineDownloaderEntry, pageIndex: Int ) -> OfflineDownloaderSavedValue {
+        guard pageIndex < entry.parts.count && pageIndex >= 0 else { return .unknown }
+        let part = entry.parts[pageIndex]
+        let rootPath = entry.rootPath(with: config.rootPath).appendPath("\(pageIndex)")
+        
+        switch part.value {
+        case .html:
+            let indexURL = rootPath.appendPath(config.indexFileName).fileURL()
+            let folderURL = rootPath.fileURL(isDirectory: true)
+            return .html(indexURL: indexURL, folderURL: folderURL)
+        case .url:
+            guard let relativePath = part.links.first?.downloadedRelativePath else { return .unknown }
+            let url = rootPath.appendPath(relativePath).fileURL()
+            return .localURL(url)
         }
     }
     

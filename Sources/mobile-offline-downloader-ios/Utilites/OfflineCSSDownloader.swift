@@ -20,7 +20,7 @@ class OfflineCSSLinkDownloader {
         if let relativePath = link.downloadedRelativePath {
             let path = rootPath.appendPath(relativePath)
             let cssFolder = path.removeLastPathComponent()
-            var contents = try String(contentsOf: URL(fileURLWithPath: path))
+            var contents = try String(contentsOf: path.fileURL())
             let baseURL = link.link
             let links = OfflineCSSLinksExtractor(contents: contents, baseUrl: baseURL).links()
             let linksProgress = Progress()

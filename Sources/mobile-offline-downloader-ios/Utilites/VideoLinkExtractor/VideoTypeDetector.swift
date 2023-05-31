@@ -64,6 +64,6 @@ struct VideoTypeDetector {
 
 extension URL {
     static var empty: URL {
-        URL(fileURLWithPath: "")
+        "".fileURL()
     }
 }
