@@ -13,11 +13,7 @@ class OfflineLinkDownloader {
         let request = request(for: url)
         
         do {
-            let (destinationURL, response) = try await download(with: request)
-            let newURL = self.destinationURL(for: url, with: response, in: folder)
-
-            try FileManager.default.createDirectoryAt(path: newURL.path)
-            try FileManager.default.moveItem(at: destinationURL, to: newURL)
+            let newURL = try await download(with: request, toFolder: folder)
             return newURL
         } catch {
             throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
@@ -108,15 +104,22 @@ class OfflineLinkDownloader {
         return URL(fileURLWithPath: destinationPath)
     }
 
-    private func download(with request: URLRequest) async throws -> (URL, URLResponse) {
+    private func download(with request: URLRequest, toFolder folder: String) async throws -> URL {
         var task: URLSessionDownloadTask?
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                task = URLSession.shared.downloadTask(with: request) { url, response, error in
+                task = URLSession.shared.downloadTask(with: request) {[weak self] url, response, error in
                     if let error = error {
                         continuation.resume(throwing: error)
-                    } else if let url = url, let response = response {
-                        continuation.resume(returning: (url, response))
+                    } else if let url = url, let response = response, let self = self {
+                        let newURL = self.destinationURL(for: url, with: response, in: folder)
+                        do {
+                            try FileManager.default.createDirectoryAt(path: newURL.path)
+                            try FileManager.default.moveItem(at: url, to: newURL)
+                            continuation.resume(returning: newURL)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     } else {
                         continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
                     }

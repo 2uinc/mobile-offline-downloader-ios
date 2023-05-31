@@ -56,6 +56,7 @@ class OfflineEntryDownloader: NSObject {
         try await downloader.download()
     }
 
+    @MainActor
     private func prepare() async throws {
         guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) }) else { return }
         try await helperType.prepareForDownload(entry: entry)
