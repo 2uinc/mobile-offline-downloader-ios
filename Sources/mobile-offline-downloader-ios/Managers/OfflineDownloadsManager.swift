@@ -74,30 +74,6 @@ public class OfflineDownloadsManager {
         start(entry: entry)
     }
 
-    public func delete(object: OfflineDownloadTypeProtocol) throws {
-        let entry = try object.downloaderEntry()
-        if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
-            let managerEntry = entries[index]
-            if let downloader = getDownloader(for: managerEntry) {
-                downloader.cancel()
-                
-                if let index = downloaders.firstIndex(of: downloader) {
-                    downloaders.remove(at: index)
-                }
-            }
-            entries.remove(at: index)
-        }
-        let path = entry.rootPath(with: config.rootPath)
-        try FileManager.default.removeItem(atPath: path)
-        
-        OfflineStorageManager.shared.delete(entry) {[weak self] result in
-            if case .success = result {
-                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: .removed, progress: 0)
-                self?.sourcePublisher.send(.statusChanged(object: publisherObject))
-            }
-        }
-    }
-
     private func start(entry: OfflineDownloaderEntry) {
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) != nil else { return }
         if !entry.isDownloaded && activeEntries.count < config.limitOfConcurrentDownloads {
@@ -139,6 +115,38 @@ public class OfflineDownloadsManager {
                 completionHandler(.success(entry.isDownloaded))
             case .failure(let error):
                 completionHandler(.failure(error))
+            }
+        }
+    }
+
+    public func delete(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        try delete(entry: entry)
+    }
+
+    public func delete(entry: OfflineDownloaderEntry) throws {
+        if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
+            let managerEntry = entries[index]
+            if let downloader = getDownloader(for: managerEntry) {
+                downloader.cancel()
+
+                if let index = downloaders.firstIndex(of: downloader) {
+                    downloaders.remove(at: index)
+                }
+            }
+            entries.remove(at: index)
+        }
+        let path = entry.rootPath(with: config.rootPath)
+        try FileManager.default.removeItem(atPath: path)
+
+        OfflineStorageManager.shared.delete(entry) {[weak self] result in
+            if case .success = result {
+                let publisherObject = OfflineDownloadsManagerEventObject(
+                    object: entry,
+                    status: .removed,
+                    progress: 0
+                )
+                self?.sourcePublisher.send(.statusChanged(object: publisherObject))
             }
         }
     }
