@@ -6,6 +6,8 @@ public class OfflineDownloaderConfig {
     public var limitOfConcurrentDownloads: Int = 3
     public var downloadTypes: [OfflineDownloadTypeProtocol.Type] = []
     public var indexFileName: String = "index.html"
+    public var defaultMediaBackground: String = "#000080"
+    public var mediaContainerClasses: [String] = ["fluid-width-video-wrapper"]
     
     public init(){}
 }

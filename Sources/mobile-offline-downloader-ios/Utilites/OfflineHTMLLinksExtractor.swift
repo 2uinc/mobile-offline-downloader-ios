@@ -1,10 +1,11 @@
 import Foundation
 import SwiftSoup
 
-struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLinksExtractorProtocol {
+struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLinksExtractorProtocol, HTMLSoupHelperProtocol {
 
     var html: String
     var baseURL: String
+    private let config = OfflineDownloadsManager.shared.config
     private var document: SwiftSoup.Document
 
     init(html: String, baseURL: String) throws {
@@ -28,18 +29,138 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func setRelativePath(for link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded else { return }
+
+        if link.videoLink != nil {
+            if link.isAudio {
+                try replacePathForAudio(with: link)
+            } else {
+                try replacePathForVideo(with: link)
+            }
+        } else {
+            try replacePath(for: link)
+        }
+    }
+    
+    private func replacePath(for link: OfflineDownloaderLink) throws {
         guard link.isDownloaded,
               let tagName = link.tag,
               let attributeName = link.attribute,
               let relativePath = link.downloadedRelativePath
         else { return }
-        // TODO: Replace video tag link.videoLink != nil
+
         let tags = try document.getElementsByTag(tagName)
         for tag in tags {
             if let linkString = try? tag.attr(attributeName),
                 !linkString.isEmpty,
                 linkString.fixLink(with: baseURL) == link.link {
                 try tag.attr(attributeName, relativePath)
+            }
+        }
+    }
+    
+    private func replacePathForVideo(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute,
+              let relativePath = link.downloadedRelativePath
+        else { return }
+        
+        let centerElement = Element(Tag("center"), "")
+        var posterAttribute = ""
+        if let posterLink = link.videoLink?.posterLink?.downloadedRelativePath {
+            posterAttribute = "poster=\"\(posterLink)\""
+        }
+
+        var trackTags = ""
+        if let tracks = link.videoLink?.videoLink.tracks, !tracks.isEmpty {
+            for track in tracks {
+                if let base64String = track.contents.data(using: .utf8)?.base64EncodedString() {
+                    let trackTag = """
+                        <track kind="captions" srclang="\(track.language)" src="data:text/vtt;base64,\(base64String)"> \n
+                    """
+                    trackTags.append(trackTag)
+                }
+            }
+
+        }
+        
+        let htmlToInsert: String = """
+            <video preload="auto" controls="true" \(posterAttribute) >
+                <source src=\(relativePath) type="video/mp4">
+                \(trackTags)
+            </video>
+        """
+        try centerElement.append(htmlToInsert)
+        
+        let tags = try document.getElementsByTag(tagName)
+        for tag in tags {
+            if let linkString = try? tag.attr(attributeName),
+                !linkString.isEmpty,
+                linkString.fixLink(with: baseURL) == link.link {
+                
+                for container in config.mediaContainerClasses {
+                    if let parent = parent(
+                        for: container,
+                        from: tag
+                    ) {
+                        try parent.replaceWith(centerElement)
+                        return
+                    }
+                }
+                
+                try tag.replaceWith(centerElement)
+            }
+        }
+    }
+    
+    private func replacePathForAudio(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute,
+              let relativePath = link.downloadedRelativePath,
+              let videoLink = link.videoLink
+        else { return }
+        
+        var color = config.defaultMediaBackground
+        if let colorString = videoLink.videoLink.colorString {
+            color = colorString
+        }
+        let name = videoLink.videoLink.name
+        
+        let centerElement = Element(Tag("center"), "")
+        let htmlToInsert: String = """
+        <div class = "offlineAudioTitle" style = "position: relative;">
+            <div style="background-color: \(color);
+                display:flex;
+                align-items: center;
+                height: calc(100vw/(16/9));">
+                <p style="color: white;">\(name)</p>
+            </div>
+            <audio controls="true" preload="auto" style="width: 100%; position:absolute; left:0; bottom:0;">
+                <source src="\(relativePath)" type="audio/mp3">
+            </audio>
+        </div>
+        """
+        try centerElement.append(htmlToInsert)
+        
+        let tags = try document.getElementsByTag(tagName)
+        for tag in tags {
+            if let linkString = try? tag.attr(attributeName),
+                !linkString.isEmpty,
+                linkString.fixLink(with: baseURL) == link.link {
+                
+                for container in config.mediaContainerClasses {
+                    if let parent = parent(
+                        for: container,
+                        from: tag
+                    ) {
+                        try parent.replaceWith(centerElement)
+                        return
+                    }
+                }
+                
+                try tag.replaceWith(centerElement)
             }
         }
     }
