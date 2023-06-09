@@ -6,8 +6,9 @@ public class OfflineStorageManager {
     private var storage: LocalStorage = .current
     private var config: OfflineStorageConfig = OfflineStorageConfig()
 
-    public func setConfig(config: OfflineStorageConfig) {
+    public func setConfig(config: OfflineStorageConfig, storage: LocalStorage = .current) {
         self.config = config
+        self.storage = storage
     }
 
     public func save<T: OfflineStorageDataProtocol>(
@@ -89,6 +90,10 @@ public class OfflineStorageManager {
                 completionHandler(.failure(error))
             }
         }
+    }
+
+    public func deleteAll(completionHandler: @escaping (Result<Void, Error>) -> Void) {
+        storage.deleteAll(completionHandler: completionHandler)
     }
 
     public func dataModel<T:OfflineStorageDataProtocol>(for object: T) throws -> OfflineStorageDataModel {
