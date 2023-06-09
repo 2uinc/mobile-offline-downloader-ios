@@ -27,39 +27,39 @@ struct OfflineDownloaderVideoLink: Codable {
     }
 }
 
-class OfflineDownloaderLink: Codable {
-    let link: String
+public class OfflineDownloaderLink: Codable {
+    public let link: String
     let tag: String?
     let attribute: String?
     var extractedLink: String?
     var downloadedRelativePath: String?
     var videoLink: OfflineDownloaderVideoLink?
 
-    var isWebLink: Bool {
+    public var isWebLink: Bool {
         tag != nil && tag?.isEmpty == false
     }
 
-    var isCssLink: Bool {
+    public var isCssLink: Bool {
         tag?.lowercased() == "link"
     }
 
-    var isIframe: Bool {
+    public var isIframe: Bool {
         tag?.lowercased() == "iframe"
     }
 
-    var isVideo: Bool {
+    public var isVideo: Bool {
         tag?.lowercased() == "video"
     }
 
-    var isAudio: Bool {
+    public var isAudio: Bool {
         tag?.lowercased() == "audio"
     }
 
-    var isImage: Bool {
+    public var isImage: Bool {
         tag?.lowercased() == "img"
     }
 
-    var isSource: Bool {
+    public var isSource: Bool {
         tag?.lowercased() == "source"
     }
 
@@ -104,7 +104,7 @@ class OfflineDownloaderLink: Codable {
 }
 
 extension OfflineDownloaderLink: Equatable {
-    static func == (lhs: OfflineDownloaderLink, rhs: OfflineDownloaderLink) -> Bool {
+    public static func == (lhs: OfflineDownloaderLink, rhs: OfflineDownloaderLink) -> Bool {
         lhs.link == rhs.link && lhs.tag == rhs.tag &&
         lhs.attribute == rhs.attribute && lhs.extractedLink == rhs.extractedLink &&
         lhs.downloadedRelativePath == rhs.downloadedRelativePath

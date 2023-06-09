@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 @MainActor
-class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
+public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     private var initHtml: String?
     private var initURL: URL?
     private var baseURL: URL?
@@ -10,15 +10,15 @@ class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     var webConfiguration: WKWebViewConfiguration {
         webview?.configuration ?? WKWebViewConfiguration()
     }
-    var html: String?
+    public var html: String?
 
-    init(html: String, baseURL: URL?, configuration: WKWebViewConfiguration? = nil) {
+    public init(html: String, baseURL: URL?, configuration: WKWebViewConfiguration? = nil) {
         self.initHtml = html
         self.baseURL = baseURL
         self.webview = webviewForConfiguration(configuration)
     }
 
-    init(url: URL, configuration: WKWebViewConfiguration? = nil) {
+    public init(url: URL, configuration: WKWebViewConfiguration? = nil) {
         self.initURL = url
         self.webview = webviewForConfiguration(configuration)
     }
@@ -41,7 +41,7 @@ class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         }
     }
 
-    func links() async throws -> [OfflineDownloaderLink] {
+    public func links() async throws -> [OfflineDownloaderLink] {
         if Task.isCancelled { throw URLError(.cancelled) }
         if let data = try await fetchDynamicHTML() {
             html = data.html
