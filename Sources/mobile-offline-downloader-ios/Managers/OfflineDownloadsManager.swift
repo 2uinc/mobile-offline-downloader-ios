@@ -67,8 +67,9 @@ public class OfflineDownloadsManager {
         self.config = config
     }
 
-    public func addAndStart(object: OfflineDownloadTypeProtocol) throws {
+    public func addAndStart(object: OfflineDownloadTypeProtocol, categoryPath: String? = nil) throws {
         let entry = try object.downloaderEntry()
+        entry.categoryPath = categoryPath
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil else { return }
         entries.append(entry)
         start(entry: entry)
