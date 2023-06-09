@@ -1,8 +1,11 @@
 import Foundation
 
-class OfflineLinkDownloader {
-    var progress: Progress = Progress(totalUnitCount: 1)
-    func download(urlString: String, toFolder folder: String) async throws -> URL {
+public class OfflineLinkDownloader {
+    public var progress: Progress = Progress(totalUnitCount: 1)
+    
+    public init() {}
+    
+    public func download(urlString: String, toFolder folder: String) async throws -> URL {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
@@ -20,7 +23,7 @@ class OfflineLinkDownloader {
         }
     }
     
-    func data(urlString: String) async throws -> Data {
+    public func data(urlString: String) async throws -> Data {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
@@ -38,7 +41,7 @@ class OfflineLinkDownloader {
         }
     }
     
-    func contents(urlString: String) async throws -> String {
+    public func contents(urlString: String) async throws -> String {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
