@@ -3,7 +3,7 @@ import Foundation
 public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
-    public var categoryPath: String?
+    public var userInfo: String?
     
     var isDownloaded: Bool = false
 
@@ -30,12 +30,16 @@ public final class OfflineDownloaderEntry: Codable {
         mainPath.appendPath(dataModel.type).appendPath(dataModel.id)
     }
 
+    public func set(userInfo: String?) {
+        self.userInfo = userInfo
+    }
+
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {
         case dataModel
         case parts
         case isDownloaded
-        case categoryPath
+        case userInfo
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -43,7 +47,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(dataModel, forKey: .dataModel)
         try container.encode(parts, forKey: .parts)
         try container.encode(isDownloaded, forKey: .isDownloaded)
-        try container.encode(categoryPath, forKey: .categoryPath)
+        try container.encode(userInfo, forKey: .userInfo)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -51,7 +55,7 @@ public final class OfflineDownloaderEntry: Codable {
         dataModel = try container.decode(OfflineStorageDataModel.self, forKey: .dataModel)
         parts = try container.decode([OfflineDownloaderEntryPart].self, forKey: .parts)
         isDownloaded = try container.decode(Bool.self, forKey: .isDownloaded)
-        categoryPath = try container.decode(String?.self, forKey: .categoryPath)
+        userInfo = try container.decode(String?.self, forKey: .userInfo)
     }
 }
 
