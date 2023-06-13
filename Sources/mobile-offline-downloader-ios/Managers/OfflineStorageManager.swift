@@ -3,12 +3,11 @@ import Foundation
 public class OfflineStorageManager {
     
     public static let shared: OfflineStorageManager = .init()
-    private var storage: LocalStorage = .current
+    private let storage: LocalStorage = .current
     private var config: OfflineStorageConfig = OfflineStorageConfig()
 
-    public func setConfig(config: OfflineStorageConfig, storage: LocalStorage = .current) {
+    public func setConfig(config: OfflineStorageConfig) {
         self.config = config
-        self.storage = storage
     }
 
     public func save<T: OfflineStorageDataProtocol>(
