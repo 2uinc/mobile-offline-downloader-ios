@@ -141,13 +141,16 @@ public class OfflineDownloadsManager {
         try FileManager.default.removeItem(atPath: path)
 
         OfflineStorageManager.shared.delete(entry) {[weak self] result in
+            guard let self = self, let object = self.object(for: entry.dataModel) else {
+                return
+            }
             if case .success = result {
                 let publisherObject = OfflineDownloadsManagerEventObject(
-                    object: entry,
+                    object:  object,
                     status: .removed,
                     progress: 0
                 )
-                self?.sourcePublisher.send(.statusChanged(object: publisherObject))
+                self.sourcePublisher.send(.statusChanged(object: publisherObject))
             }
         }
     }
