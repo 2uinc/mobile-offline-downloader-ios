@@ -7,10 +7,14 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     private var initURL: URL?
     private var baseURL: URL?
     private var webview: OfflineBackgroundWebview?
-    var webConfiguration: WKWebViewConfiguration {
+    
+    public var webConfiguration: WKWebViewConfiguration {
         webview?.configuration ?? WKWebViewConfiguration()
     }
     public var html: String?
+    public var latestRedirectURL: URL? {
+        webview?.latestRedirectURL
+    }
 
     public init(html: String, baseURL: URL?, configuration: WKWebViewConfiguration? = nil) {
         self.initHtml = html
@@ -85,9 +89,11 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
                         }
                     }
                     if let url = initURL {
+                        print("ALARM[1]")
                         let request = URLRequest(url: url)
                         _ = webview?.load(request)
                     } else if let html = initHtml {
+                        print("ALARM[2]")
                         _ = webview?.loadHTMLString(html, baseURL: baseURL)
                     }
                 }

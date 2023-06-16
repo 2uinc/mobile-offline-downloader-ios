@@ -2,6 +2,7 @@ import Foundation
 
 public class OfflineLinkDownloader {
     public var progress: Progress = Progress(totalUnitCount: 1)
+    public var additionCookies: [HTTPCookie] = []
     
     public init() {}
     
@@ -55,7 +56,14 @@ public class OfflineLinkDownloader {
     
     private func request(for url: URL) -> URLRequest {
         
-        let request = URLRequest(url: url)
+        var request = URLRequest(url: url)
+        var cookieString = ""
+        for cookie in additionCookies {
+            cookieString += cookieString.isEmpty ? "\(cookie.name)=\(cookie.value)" : "; \(cookie.name)=\(cookie.value)"
+        }
+        if !cookieString.isEmpty {
+            request.addValue(cookieString, forHTTPHeaderField: "Cookie")
+        }
         // TODO: ask config for addition headers for url (Referer and etc.)
         return request
     }

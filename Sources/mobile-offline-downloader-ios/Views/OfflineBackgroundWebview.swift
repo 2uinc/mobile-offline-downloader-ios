@@ -10,6 +10,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     let completionMessage: String = "loadCompleted"
     let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
+    var latestRedirectURL: URL?
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
@@ -115,12 +116,17 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
 }
 
 extension OfflineBackgroundWebview: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        print("ALARM[3]")
+    }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation, withError error: Error) {
         print("HTMLBackgroundWebview didFail withError ", error)
-        didFinishBlock?(nil, error)
+        print("ALARM[4] is isLoading \(webView.isLoading), navigation \(navigation.description), error = \(error)")
+//        didFinishBlock?(nil, error)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        print("ALARM[5]")
         let request = navigationAction.request
         if request.url?.scheme == completionScheme {
             webView.evaluateJavaScript(
@@ -140,6 +146,9 @@ extension OfflineBackgroundWebview: WKNavigationDelegate {
             }
             decisionHandler(.cancel)
         } else {
+            if navigationAction.sourceFrame.isMainFrame {
+                latestRedirectURL = navigationAction.request.url
+            }
             decisionHandler(.allow)
         }
     }
