@@ -184,6 +184,33 @@ public class OfflineDownloadsManager {
         }
     }
     
+    public func eventObject(for object: OfflineDownloadTypeProtocol, completionBlock: @escaping (Result<OfflineDownloadsManagerEventObject, Error>) -> Void) {
+        do {
+            let entry = try object.downloaderEntry()
+            if let entry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type),
+                let downloader = getDownloader(for: entry){
+                let progress = downloader.progress.fractionCompleted
+                let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
+                completionBlock(.success(eventObject))
+                return
+            }
+
+            savedEntry(for: object) { result in
+                switch result {
+                case .success(let entry):
+                    let status: OfflineDownloaderStatus = entry.isDownloaded ? .completed : .initialized
+                    let progress: Double = entry.isDownloaded ? 1 : 0
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: progress)
+                    completionBlock(.success(eventObject))
+                case .failure(let error):
+                    completionBlock(.failure(error))
+                }
+            }
+        } catch {
+            completionBlock(.failure(error))
+        }
+    }
+    
     func createDownloader(for entry: OfflineDownloaderEntry) -> OfflineEntryDownloader {
         let downloader = OfflineEntryDownloader(entry: entry, config: config)
         
