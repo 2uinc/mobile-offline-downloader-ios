@@ -59,12 +59,10 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
     }
     
-    private func replacePathForVideo(with link: OfflineDownloaderLink) throws {
+    private func videoElement(from link: OfflineDownloaderLink) throws -> Element? {
         guard link.isDownloaded,
-              let tagName = link.tag,
-              let attributeName = link.attribute,
               let relativePath = link.downloadedRelativePath
-        else { return }
+        else { return nil }
         
         let centerElement = Element(Tag("center"), "")
         var posterAttribute = ""
@@ -92,6 +90,14 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
             </video>
         """
         try centerElement.append(htmlToInsert)
+        return centerElement
+    }
+    
+    private func replacePathForVideo(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute
+        else { return }
         
         let tags = try document.getElementsByTag(tagName)
         for tag in tags {
@@ -99,28 +105,28 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                 !linkString.isEmpty,
                 linkString.fixLink(with: baseURL) == link.link {
                 
-                for container in config.mediaContainerClasses {
-                    if let parent = parent(
-                        for: container,
-                        from: tag
-                    ) {
-                        try parent.replaceWith(centerElement)
-                        return
+                if let centerElement = try videoElement(from: link) {
+                    for container in config.mediaContainerClasses {
+                        if let parent = parent(
+                            for: container,
+                            from: tag
+                        ) {
+                            try parent.replaceWith(centerElement)
+                            return
+                        }
                     }
+                    
+                    try tag.replaceWith(centerElement)
                 }
-                
-                try tag.replaceWith(centerElement)
             }
         }
     }
     
-    private func replacePathForAudio(with link: OfflineDownloaderLink) throws {
+    private func audioElement(from link: OfflineDownloaderLink) throws -> Element? {
         guard link.isDownloaded,
-              let tagName = link.tag,
-              let attributeName = link.attribute,
               let relativePath = link.downloadedRelativePath,
               let videoLink = link.videoLink
-        else { return }
+        else { return nil }
         
         var color = config.defaultMediaBackground
         if let colorString = videoLink.videoLink.colorString {
@@ -143,24 +149,33 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         </div>
         """
         try centerElement.append(htmlToInsert)
-        
+        return centerElement
+    }
+    
+    private func replacePathForAudio(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute
+        else { return }
+
         let tags = try document.getElementsByTag(tagName)
         for tag in tags {
             if let linkString = try? tag.attr(attributeName),
                 !linkString.isEmpty,
                 linkString.fixLink(with: baseURL) == link.link {
-                
-                for container in config.mediaContainerClasses {
-                    if let parent = parent(
-                        for: container,
-                        from: tag
-                    ) {
-                        try parent.replaceWith(centerElement)
-                        return
+                if let centerElement = try audioElement(from: link) {
+                    for container in config.mediaContainerClasses {
+                        if let parent = parent(
+                            for: container,
+                            from: tag
+                        ) {
+                            try parent.replaceWith(centerElement)
+                            return
+                        }
                     }
+                    
+                    try tag.replaceWith(centerElement)
                 }
-                
-                try tag.replaceWith(centerElement)
             }
         }
     }
