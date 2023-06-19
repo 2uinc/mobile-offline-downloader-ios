@@ -34,11 +34,66 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         if link.videoLink != nil {
             if link.isAudio {
                 try replacePathForAudio(with: link)
-            } else {
+            } else if link.isVideo {
                 try replacePathForVideo(with: link)
+            } else if link.isIframe {
+                try replaceVideoPathForIframe(with: link)
+            } else if link.isScript {
+                try replaceVideoPathForScript(with: link)
             }
         } else {
             try replacePath(for: link)
+        }
+    }
+    private func replaceVideoPathForIframe(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded, let videoLink = link.videoLink else { return }
+        if videoLink.videoLink.isAudio {
+            try replacePathForAudio(with: link)
+        } else  {
+            try replacePathForVideo(with: link)
+        }
+    }
+
+    private func replaceVideoPathForScript(with link: OfflineDownloaderLink) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute,
+              let videoLink = link.videoLink
+        else { return }
+        
+        if let id = link.link.lastPathComponent().components(separatedBy: ".").first {
+            let tags = try document.getElementsByClass("wistia_async_\(id)")
+            for tag in tags {
+                var element: Element?
+                if videoLink.videoLink.isAudio {
+                    element = try videoElement(from: link)
+                } else {
+                    element = try audioElement(from: link)
+                }
+                
+                if let centerElement = element {
+                    for container in config.mediaContainerClasses {
+                        if let parent = parent(
+                            for: container,
+                            from: tag
+                        ) {
+                            try parent.replaceWith(centerElement)
+                            return
+                        }
+                    }
+                    
+                    try tag.replaceWith(centerElement)
+                }
+            }
+        }
+        
+        let scripts = try document.getElementsByTag(tagName)
+        for script in scripts {
+            if let linkString = try? script.attr(attributeName),
+                !linkString.isEmpty,
+                linkString.fixLink(with: baseURL) == link.link {
+                try script.remove()
+            }
         }
     }
     

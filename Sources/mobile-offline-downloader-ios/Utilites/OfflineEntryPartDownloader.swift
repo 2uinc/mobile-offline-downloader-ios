@@ -76,6 +76,10 @@ class OfflineEntryPartDownloader {
             return true
         }
 
+        if VideoTypeDetector(link: link.link).isWistiaJSON {
+            return true
+        }
+        
         return false
     }
 }

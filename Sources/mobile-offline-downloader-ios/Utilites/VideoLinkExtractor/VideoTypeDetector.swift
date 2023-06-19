@@ -11,6 +11,7 @@ struct VideoTypeDetector {
         case unknown
         case youtube
         case eco
+        case wistiaJSON
     }
 
     var link: String
@@ -30,7 +31,8 @@ struct VideoTypeDetector {
             (.vimeo, isVimeo),
             (.youtube, isYoutube),
             (.video, isVideo),
-            (.eco, isEco)
+            (.eco, isEco),
+            (.wistiaJSON, isWistiaJSON)
         ]
 
         return turples.first { $0.value }?.type ?? .unknown
@@ -46,9 +48,13 @@ struct VideoTypeDetector {
     }
 
     var isWistia: Bool {
-        host.contains("wistia")
+        host.contains("wistia") && !isWistiaJSON
     }
 
+    var isWistiaJSON: Bool {
+        host.contains("wistia") && link.contains(".jsonp")
+    }
+    
     var isVimeo: Bool {
         host.contains("vimeo")
     }

@@ -28,6 +28,8 @@ struct VideoLinkExtractor {
             return try await getVimeoLink()
         case .hapyak:
             return try await getHapyakLink()
+        case .wistiaJSON:
+            return try await getWistiaJsonLink()
         case .youtube, .eco:
             throw VideoLinkExtractorError.unsupportedType(src: link, type: type)
         default:
@@ -264,11 +266,25 @@ struct VideoLinkExtractor {
             throw VideoLinkExtractorError.noJSON(src: link)
         }
     }
+    
+    private func getWistiaJsonLink() async throws -> VideoLink {
+        let content: String = try await getContents(for: link)
+        if let json = content.slice(fromStr: "= {", toStr: "};") {
+            let jsonBody = "{\(json)}"
+            let wistia = try decode(json: jsonBody, with: WistiaJSON.self)
+            return try await getWistiaLink(from: wistia.media)
+        }
+        throw VideoLinkExtractorError.noJSON(src: link)
+    }
 
     private func getWistiaLink() async throws -> VideoLink {
         let link = link.fixLink(with: baseHost)
         let content = try await getContents(for: link)
         let wistia = try getWistiaVideo(from: content)
+        return try await getWistiaLink(from: wistia)
+    }
+
+    private func getWistiaLink(from wistia: WistiaVideo) async throws -> VideoLink {
         var tracks: [VideoTrack] = []
         do {
             tracks = try await getWistiaSubtitles(id: wistia.hashedId)
@@ -281,7 +297,7 @@ struct VideoLinkExtractor {
             throw VideoLinkExtractorError.noCompatibleVideo(src: link)
         }
     }
-
+    
     private func getHapyakLink() async throws -> VideoLink {
         let link = link.fixLink(with: baseHost)
         guard let url = URL(string: link) else { throw VideoLinkExtractorError.badSrc(src: link) }

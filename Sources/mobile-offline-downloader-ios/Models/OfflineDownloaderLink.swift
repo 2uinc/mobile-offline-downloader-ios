@@ -46,6 +46,10 @@ public class OfflineDownloaderLink: Codable {
     public var isIframe: Bool {
         tag?.lowercased() == "iframe"
     }
+    
+    public var isScript: Bool {
+        tag?.lowercased() == "script"
+    }
 
     public var isVideo: Bool {
         tag?.lowercased() == "video"
