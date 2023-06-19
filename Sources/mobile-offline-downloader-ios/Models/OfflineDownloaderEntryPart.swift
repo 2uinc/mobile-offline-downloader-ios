@@ -73,7 +73,7 @@ public class OfflineDownloaderEntryPart: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(value, forKey: .value)
         try container.encode(links, forKey: .links)
-        try container.encode(cookieString, forKey: .links)
+        try container.encode(cookieString, forKey: .cookieString)
     }
     
     public required init(from decoder: Decoder) throws {

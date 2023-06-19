@@ -50,10 +50,12 @@ class OfflineEntryPartDownloader {
             if !link.isDownloaded {
                 if shouldUseVideoDownloader(for: link) {
                     let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
+                    videoDownloader.cookieString = part.cookieString
                     progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
                     try await videoDownloader.download()
                 } else if link.isCssLink {
                     let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS)
+                    cssDownloader.cookieString = part.cookieString
                     progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
                     try await cssDownloader.download()
                 } else {
