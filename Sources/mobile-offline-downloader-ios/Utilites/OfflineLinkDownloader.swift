@@ -2,7 +2,7 @@ import Foundation
 
 public class OfflineLinkDownloader {
     public var progress: Progress = Progress(totalUnitCount: 1)
-    public var additionCookies: [HTTPCookie] = []
+    public var additionCookies: String?
     
     public init() {}
     
@@ -57,11 +57,7 @@ public class OfflineLinkDownloader {
     private func request(for url: URL) -> URLRequest {
         
         var request = URLRequest(url: url)
-        var cookieString = ""
-        for cookie in additionCookies {
-            cookieString += cookieString.isEmpty ? "\(cookie.name)=\(cookie.value)" : "; \(cookie.name)=\(cookie.value)"
-        }
-        if !cookieString.isEmpty {
+        if let cookieString = additionCookies {
             request.addValue(cookieString, forHTTPHeaderField: "Cookie")
         }
         // TODO: ask config for addition headers for url (Referer and etc.)
@@ -174,8 +170,9 @@ public class OfflineLinkDownloader {
         }
     }
     
-    static func download(link: OfflineDownloaderLink, to path: String, with mainProgress: Progress?) async throws {
+    static func download(link: OfflineDownloaderLink, to path: String, with mainProgress: Progress?, cookieString: String? = nil) async throws {
         let downloader = OfflineLinkDownloader()
+        downloader.additionCookies = cookieString
         mainProgress?.addChild(downloader.progress, withPendingUnitCount: 1)
         let url = try await downloader.download(urlString: link.extractedLink ?? link.link, toFolder: path)
         let relativePath = url.filePath.replacingOccurrences(of: path + "/", with: "")

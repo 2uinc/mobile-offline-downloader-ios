@@ -18,6 +18,7 @@ struct VideoTrack: Codable {
 struct VideoLinkExtractor {
     var link: String
     var baseHost: String = ""
+    var cookieString: String?
 
     func getVideoLink() async throws -> VideoLink {
         let type = VideoTypeDetector(link: link).type
@@ -41,6 +42,7 @@ struct VideoLinkExtractor {
         if Task.isCancelled { throw URLError(.cancelled) }
         do {
             let downloader = OfflineLinkDownloader()
+            downloader.additionCookies = cookieString
             return try await downloader.contents(urlString: urlString)
         } catch {
             throw VideoLinkExtractorError.cantGetContents(

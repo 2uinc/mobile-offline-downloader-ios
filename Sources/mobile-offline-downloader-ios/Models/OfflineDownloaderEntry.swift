@@ -4,7 +4,7 @@ public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
-    
+    public var cookieString: String?
     var isDownloaded: Bool = false
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
@@ -12,8 +12,9 @@ public final class OfflineDownloaderEntry: Codable {
         self.parts = parts
     }
 
-    public func addHtmlPart(_ html: String, baseURL: String?) {
+    public func addHtmlPart(_ html: String, baseURL: String?, cookieString: String? = nil) {
         let part = OfflineDownloaderEntryPart(value: .html(html: html, baseURL: baseURL))
+        part.cookieString = cookieString
         parts.append(part)
     }
 

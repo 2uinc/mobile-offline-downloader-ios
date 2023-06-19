@@ -233,7 +233,14 @@ public class OfflineDownloadsManager {
                 switch status {
                 case .completed:
                     guard let entry = entry else { return }
-                    OfflineStorageManager.shared.save(entry) { result in }
+                    OfflineStorageManager.shared.save(entry) { result in
+                        switch result {
+                        case .success:
+                            print("✅ Download finished and saved to Realm")
+                        case .failure(let error):
+                            print("⚠️ Download finished but Realm failed error = \(error)")
+                        }
+                    }
                 default:
                     break
                 }

@@ -41,7 +41,7 @@ class OfflineEntryPartDownloader {
             progress.totalUnitCount = 1
             let link = OfflineDownloaderLink(link: url)
             part.append(links: [link])
-            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
+            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
         }
     }
     
@@ -57,7 +57,7 @@ class OfflineEntryPartDownloader {
                     progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
                     try await cssDownloader.download()
                 } else {
-                    try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
+                    try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
                 }
             } else {
                 progress.completedUnitCount += 1

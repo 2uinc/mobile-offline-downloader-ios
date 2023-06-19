@@ -52,6 +52,7 @@ extension OfflineDownloaderEntryValue: Codable {
 public class OfflineDownloaderEntryPart: Codable {
     var value: OfflineDownloaderEntryValue
     var links: [OfflineDownloaderLink] = []
+    var cookieString: String?
 
     public init(value: OfflineDownloaderEntryValue) {
         self.value = value
@@ -65,18 +66,21 @@ public class OfflineDownloaderEntryPart: Codable {
     private enum CodingKeys : String, CodingKey {
         case value
         case links
+        case cookieString
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(value, forKey: .value)
         try container.encode(links, forKey: .links)
+        try container.encode(cookieString, forKey: .links)
     }
     
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         value = try container.decode(OfflineDownloaderEntryValue.self, forKey: .value)
         links = try container.decode([OfflineDownloaderLink].self, forKey: .links)
+        cookieString = try container.decode(String?.self, forKey: .cookieString)
     }
 }
 

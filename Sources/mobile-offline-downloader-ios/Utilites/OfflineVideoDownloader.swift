@@ -4,6 +4,7 @@ class OfflineVideoDownloader {
     var link: OfflineDownloaderLink
     var progress: Progress = Progress()
     var rootPath: String
+    var cookieString: String?
     
     init(link: OfflineDownloaderLink, rootPath: String) {
         self.link = link
@@ -19,7 +20,7 @@ class OfflineVideoDownloader {
         let links = [link, link.videoLink?.posterLink].compactMap{$0}
         progress.totalUnitCount = Int64(links.count)
         for link in links {
-            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress)
+            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: cookieString)
         }
     }
 
