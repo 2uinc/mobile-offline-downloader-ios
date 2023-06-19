@@ -17,6 +17,7 @@ struct VideoTrack: Codable {
 
 struct VideoLinkExtractor {
     var link: String
+    var baseHost: String = ""
 
     func getVideoLink() async throws -> VideoLink {
         let type = VideoTypeDetector(link: link).type
@@ -78,7 +79,8 @@ struct VideoLinkExtractor {
         let jsonBodies: [String] = [
             content.slice(fromStr: "var config = {", toStr: "};"),
             content.slice(fromStr: "playerConfig = {", toStr: "};"),
-            content.slice(fromStr: "playerConfig = {", toStr: "}\n")
+            content.slice(fromStr: "playerConfig = {", toStr: "}\n"),
+            content.slice(fromStr: "playerConfig = {", toStr: "}</script>")
         ].compactMap { $0 }
         if !jsonBodies.isEmpty {
             var jsonErrors: [Error] = []
@@ -103,8 +105,7 @@ struct VideoLinkExtractor {
     }
 
     private func getVimeoLink() async throws -> VideoLink {
-        let link = link.fixLink(with: "")
-        guard let url = URL(string: link) else { throw VideoLinkExtractorError.badSrc(src: link) }
+        let link = link.fixLink(with: baseHost)
 
         let content = try await getContents(for: link)
         let video = try await getVimeoVideo(from: content)
@@ -265,7 +266,7 @@ struct VideoLinkExtractor {
     }
 
     private func getWistiaLink() async throws -> VideoLink {
-        let link = link.fixLink(with: "")
+        let link = link.fixLink(with: baseHost)
         let content = try await getContents(for: link)
         let wistia = try getWistiaVideo(from: content)
         var tracks: [VideoTrack] = []
@@ -282,7 +283,7 @@ struct VideoLinkExtractor {
     }
 
     private func getHapyakLink() async throws -> VideoLink {
-        let link = link.fixLink(with: "")
+        let link = link.fixLink(with: baseHost)
         guard let url = URL(string: link) else { throw VideoLinkExtractorError.badSrc(src: link) }
         let storage = try await getDynamicStorage(from: url)
         if
@@ -311,6 +312,10 @@ struct VideoLinkExtractor {
                 }
             } else if let iframeLink = storage.links.first(where: { $0.isIframe && $0.link.contains(sourceId) }) {
                 let extractor = VideoLinkExtractor(link: iframeLink.link)
+                return try await extractor.getVideoLink()
+            } else if let embedUrl = content.slice(fromStr: "embedUrl\":\"", toStr: "\"") {
+                let link = embedUrl.fixLink(with: baseHost)
+                let extractor = VideoLinkExtractor(link: link)
                 return try await extractor.getVideoLink()
             } else {
                 throw VideoLinkExtractorError.noJSON(src: link)

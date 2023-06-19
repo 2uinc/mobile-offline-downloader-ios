@@ -107,6 +107,10 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         if Task.isCancelled { throw URLError(.cancelled) }
         return result
     }
+    
+    public func cookies() async -> [HTTPCookie] {
+        await webConfiguration.websiteDataStore.httpCookieStore.allCookies()
+    }
 
     func stopLoading() {
         webview?.stopLoading()
