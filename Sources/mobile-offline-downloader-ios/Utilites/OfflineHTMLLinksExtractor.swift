@@ -236,7 +236,14 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func finalHTML() throws -> String {
-        try document.html()
+        let metas = try document.getElementsByAttributeValue("name", "viewport")
+        if metas.isEmpty() {
+            let meta = Element(Tag("meta"), "")
+            try meta.attr("name", "viewport")
+            try meta.attr("content", "width=device-width, initial-scale=1")
+            try document.head()?.addChildren(meta)
+        }
+        return try document.html()
     }
 
     private func linksForTag(_ name: String) throws -> [OfflineDownloaderLink] {
