@@ -66,9 +66,9 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
             for tag in tags {
                 var element: Element?
                 if videoLink.videoLink.isAudio {
-                    element = try videoElement(from: link)
-                } else {
                     element = try audioElement(from: link)
+                } else {
+                    element = try videoElement(from: link)
                 }
                 
                 if let centerElement = element {
