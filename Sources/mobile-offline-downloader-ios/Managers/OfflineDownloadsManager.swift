@@ -230,20 +230,6 @@ public class OfflineDownloadsManager {
 
                 let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: downloader.progress.fractionCompleted)
                 self?.sourcePublisher.send(.statusChanged(object: publisherObject))
-                switch status {
-                case .completed:
-                    guard let entry = entry else { return }
-                    OfflineStorageManager.shared.save(entry) { result in
-                        switch result {
-                        case .success:
-                            print("✅ Download finished and saved to Realm")
-                        case .failure(let error):
-                            print("⚠️ Download finished but Realm failed error = \(error)")
-                        }
-                    }
-                default:
-                    break
-                }
             }
             .store(in: &cancellables)
         return downloader

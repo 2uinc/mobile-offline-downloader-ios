@@ -37,11 +37,24 @@ class OfflineEntryDownloader: NSObject {
                     try await download(part: part)
                 }
                 entry.isDownloaded = true
+                try await saveToDB()
                 status = .completed
-                // TODO: Save to database
             } catch {
                 // TODO: save error
                 status = .failed
+            }
+        }
+    }
+    
+    private func saveToDB() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            OfflineStorageManager.shared.save(entry) { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
