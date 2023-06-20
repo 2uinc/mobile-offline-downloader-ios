@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @objc public enum OfflineDownloaderStatus: Int {
-    case initialized, preparing, paused, active, completed, cancelled, removed
+    case initialized, preparing, paused, active, completed, cancelled, removed, failed
 
     var canResume: Bool {
         return self == .paused
@@ -40,7 +40,8 @@ class OfflineEntryDownloader: NSObject {
                 status = .completed
                 // TODO: Save to database
             } catch {
-                print("error = \(error)")
+                // TODO: save error
+                status = .failed
             }
         }
     }

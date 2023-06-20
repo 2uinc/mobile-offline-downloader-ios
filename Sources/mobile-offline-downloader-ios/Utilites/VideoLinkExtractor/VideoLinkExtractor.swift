@@ -80,6 +80,7 @@ struct VideoLinkExtractor {
             throw VideoLinkExtractorError.decodeFailed(src: link, error: error)
         }
     }
+
     private func getVimeoVideo(from content: String, isEmbed: Bool = false) async throws -> VimeoVideo {
         let jsonBodies: [String] = [
             content.slice(fromStr: "var config = {", toStr: "};"),

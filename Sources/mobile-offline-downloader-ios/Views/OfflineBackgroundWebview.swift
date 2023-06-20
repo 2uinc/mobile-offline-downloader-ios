@@ -11,6 +11,8 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
     var latestRedirectURL: URL?
+    private var error: Error?
+    private var errorTimer: Timer?
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
@@ -113,20 +115,32 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         configuration.userContentController.addUserScript(script)
     }
 
+    private func startErrorTimer() {
+        errorTimer = Timer.scheduledTimer(
+            withTimeInterval: 10,
+            repeats: false,
+            block: { [weak self] timer in
+                self?.stopErrorTimer()
+                self?.didFinishBlock?(nil, self?.error)
+            }
+        )
+    }
+    
+    private func stopErrorTimer() {
+        errorTimer?.invalidate()
+        errorTimer = nil
+    }
 }
 
 extension OfflineBackgroundWebview: WKNavigationDelegate {
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        print("ALARM[3]")
-    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation, withError error: Error) {
-        print("HTMLBackgroundWebview didFail withError ", error)
-        print("ALARM[4] is isLoading \(webView.isLoading), navigation \(navigation.description), error = \(error)")
-//        didFinishBlock?(nil, error)
+        self.error = error
+        startErrorTimer()
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        print("ALARM[5]")
+        stopErrorTimer()
         let request = navigationAction.request
         if request.url?.scheme == completionScheme {
             webView.evaluateJavaScript(
