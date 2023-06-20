@@ -233,9 +233,15 @@ final public class RealmStorage: LocalStorage {
             do {
                 try self.realm?.write {
                     self.realm?.deleteAll()
+                    DispatchQueue.main.async {
+                        completionHandler(.success(()))
+                    }
                 }
             } catch {
                 print(error.localizedDescription)
+                DispatchQueue.main.async {
+                    completionHandler(.failure(error))
+                }
             }
         }
     }
