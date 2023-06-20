@@ -7,11 +7,14 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     private var initURL: URL?
     private var baseURL: URL?
     private var webview: OfflineBackgroundWebview?
+    private var latestData: OfflineBackgroundWebview.OfflineBackgroundWebviewData?
     
     public var webConfiguration: WKWebViewConfiguration {
         webview?.configuration ?? WKWebViewConfiguration()
     }
-    public var html: String?
+    public var html: String? {
+        latestData?.html
+    }
     public var latestRedirectURL: URL? {
         webview?.latestRedirectURL
     }
@@ -44,31 +47,35 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
             )
         }
     }
-
-    public func links() async throws -> [OfflineDownloaderLink] {
+    
+    public func fetch() async throws {
         if Task.isCancelled { throw URLError(.cancelled) }
         if let data = try await fetchDynamicHTML() {
-            html = data.html
-            let baseString = baseURL?.absoluteString ?? ""
-            let linksExtractor = try OfflineHTMLLinksExtractor(html: data.html, baseURL: baseString)
-            do {
-                var links = try await linksExtractor.links()
-                links.appendDistinct(data.links.map {
-                    OfflineDownloaderLink(link: $0.fixLink(with: baseString))
-                })
-                return links
-            } catch {
-                if error.isCancelled {
-                    throw error
-                }
-                throw OfflineHTMLDynamicsLinksExtractorError.cantGetStorage(error: error)
-            }
+            latestData = data
         } else {
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData
         }
     }
+
+    public func links() async throws -> [OfflineDownloaderLink] {
+        guard let data = latestData else { return [] }
+        let baseString = baseURL?.absoluteString ?? ""
+        let linksExtractor = try OfflineHTMLLinksExtractor(html: data.html, baseURL: baseString)
+        do {
+            var links = try await linksExtractor.links()
+            links.appendDistinct(data.links.map {
+                OfflineDownloaderLink(link: $0.fixLink(with: baseString))
+            })
+            return links
+        } catch {
+            if error.isCancelled {
+                throw error
+            }
+            throw OfflineHTMLDynamicsLinksExtractorError.cantGetStorage(error: error)
+        }
+    }
     
-    func fetchDynamicHTML() async throws -> OfflineBackgroundWebview.OfflineBackgroundWebviewData? {
+    private func fetchDynamicHTML() async throws -> OfflineBackgroundWebview.OfflineBackgroundWebviewData? {
         if Task.isCancelled { throw URLError(.cancelled) }
         let result: OfflineBackgroundWebview.OfflineBackgroundWebviewData? = try await withTaskCancellationHandler(
             operation: {
@@ -89,11 +96,9 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
                         }
                     }
                     if let url = initURL {
-                        print("ALARM[1]")
                         let request = URLRequest(url: url)
                         _ = webview?.load(request)
                     } else if let html = initHtml {
-                        print("ALARM[2]")
                         _ = webview?.loadHTMLString(html, baseURL: baseURL)
                     }
                 }
