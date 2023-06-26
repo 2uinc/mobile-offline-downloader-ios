@@ -5,7 +5,7 @@ public final class OfflineDownloaderEntry: Codable {
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
     public var cookieString: String?
-    var isDownloaded: Bool = false
+    @objc dynamic var status: OfflineDownloaderStatus = .initialized
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
@@ -41,22 +41,24 @@ public final class OfflineDownloaderEntry: Codable {
         case parts
         case isDownloaded
         case userInfo
+        case status
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(dataModel, forKey: .dataModel)
         try container.encode(parts, forKey: .parts)
-        try container.encode(isDownloaded, forKey: .isDownloaded)
         try container.encode(userInfo, forKey: .userInfo)
+        try container.encode(status.rawValue, forKey: .status)
     }
     
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         dataModel = try container.decode(OfflineStorageDataModel.self, forKey: .dataModel)
         parts = try container.decode([OfflineDownloaderEntryPart].self, forKey: .parts)
-        isDownloaded = try container.decode(Bool.self, forKey: .isDownloaded)
         userInfo = try container.decode(String?.self, forKey: .userInfo)
+        let statusRawValue = try container.decode(Int.self, forKey: .status)
+        status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
     }
 }
 

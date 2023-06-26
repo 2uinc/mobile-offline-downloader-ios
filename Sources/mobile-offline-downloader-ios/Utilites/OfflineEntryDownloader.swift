@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @objc public enum OfflineDownloaderStatus: Int {
-    case initialized, preparing, paused, active, completed, cancelled, removed
+    case initialized, preparing, paused, active, completed, cancelled, removed, failed
 
     var canResume: Bool {
         return self == .paused
@@ -18,9 +18,20 @@ class OfflineEntryDownloader: NSObject {
     var entry: OfflineDownloaderEntry
     private var task: Task<(), Never>?
     @objc dynamic var progress: Progress = Progress()
-
-    @objc dynamic var status: OfflineDownloaderStatus = .initialized
-
+    lazy var statusPublisher: CurrentValueSubject<OfflineDownloaderStatus, Never> = {
+        CurrentValueSubject<OfflineDownloaderStatus, Never>(status)
+    }()
+    
+    var status: OfflineDownloaderStatus {
+        get {
+            entry.status
+        }
+        set {
+            entry.status = newValue
+            statusPublisher.send(newValue)
+        }
+    }
+    
     init(entry: OfflineDownloaderEntry, config: OfflineDownloaderConfig) {
         self.entry = entry
         self.config = config
@@ -36,11 +47,25 @@ class OfflineEntryDownloader: NSObject {
                 for part in entry.parts {
                     try await download(part: part)
                 }
-                entry.isDownloaded = true
+                try await saveToDB()
                 status = .completed
-                // TODO: Save to database
             } catch {
-                print("error = \(error)")
+                // TODO: save error
+                print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
+                status = .failed
+            }
+        }
+    }
+    
+    private func saveToDB() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            OfflineStorageManager.shared.save(entry) { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }

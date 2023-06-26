@@ -22,8 +22,8 @@ public class OfflineDownloadsManager {
     }
 
     var entries: [OfflineDownloaderEntry] = []
-    var activeEntries: [OfflineDownloaderEntry] {
-        []
+    public var activeEntries: [OfflineDownloaderEntry] {
+        downloaders.map { $0.entry }
     }
 
     var completedEntries: [OfflineDownloaderEntry] {
@@ -77,7 +77,7 @@ public class OfflineDownloadsManager {
 
     private func start(entry: OfflineDownloaderEntry) {
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) != nil else { return }
-        if !entry.isDownloaded && activeEntries.count < config.limitOfConcurrentDownloads {
+        if entry.status != .completed && activeEntries.count < config.limitOfConcurrentDownloads {
             if let downloader = getDownloader(for: entry) {
                 if downloader.status.canStart {
                     downloader.start()
@@ -113,7 +113,7 @@ public class OfflineDownloadsManager {
         savedEntry(for: object) { result in
             switch result {
             case .success(let entry):
-                completionHandler(.success(entry.isDownloaded))
+                completionHandler(.success(entry.status == .completed))
             case .failure(let error):
                 completionHandler(.failure(error))
             }
@@ -198,9 +198,8 @@ public class OfflineDownloadsManager {
             savedEntry(for: object) { result in
                 switch result {
                 case .success(let entry):
-                    let status: OfflineDownloaderStatus = entry.isDownloaded ? .completed : .initialized
-                    let progress: Double = entry.isDownloaded ? 1 : 0
-                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: progress)
+                    let progress: Double = entry.status == .completed ? 1 : 0
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
                     completionBlock(.success(eventObject))
                 case .failure(let error):
                     completionBlock(.failure(error))
@@ -223,9 +222,9 @@ public class OfflineDownloadsManager {
                 self?.sourcePublisher.send(.progressChanged(object: publisherObject))
             }
             .store(in: &cancellables)
-        downloader.publisher(for: \.status)
+        downloader.statusPublisher
             .receive(on: DispatchQueue.main)
-            .sink {[weak self, weak entry, weak downloader] status in
+            .sink {[weak self, weak downloader] status in
                 guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
 
                 let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: downloader.progress.fractionCompleted)
@@ -233,7 +232,6 @@ public class OfflineDownloadsManager {
                 switch status {
                 case .completed:
                     print("publisherObject completed")
-                    guard let entry = entry else { return }
                     OfflineStorageManager.shared.save(entry) { result in
                         switch result {
                         case .success:
