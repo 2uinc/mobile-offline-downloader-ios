@@ -22,8 +22,8 @@ public class OfflineDownloadsManager {
     }
 
     var entries: [OfflineDownloaderEntry] = []
-    var activeEntries: [OfflineDownloaderEntry] {
-        []
+    public var activeEntries: [OfflineDownloaderEntry] {
+        downloaders.map { $0.entry }
     }
 
     var completedEntries: [OfflineDownloaderEntry] {
@@ -232,6 +232,7 @@ public class OfflineDownloadsManager {
                 self?.sourcePublisher.send(.statusChanged(object: publisherObject))
                 switch status {
                 case .completed:
+                    print("publisherObject completed")
                     guard let entry = entry else { return }
                     OfflineStorageManager.shared.save(entry) { result in
                         switch result {
