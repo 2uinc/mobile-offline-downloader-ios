@@ -232,6 +232,7 @@ public class OfflineDownloadsManager {
                 self?.sourcePublisher.send(.statusChanged(object: publisherObject))
                 switch status {
                 case .completed:
+                    print("publisherObject completed")
                     guard let entry = entry else { return }
                     OfflineStorageManager.shared.save(entry) { result in
                         switch result {
