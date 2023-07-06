@@ -23,7 +23,9 @@ public class OfflineDownloadsManager {
 
     var entries: [OfflineDownloaderEntry] = []
     public var activeEntries: [OfflineDownloaderEntry] {
-        downloaders.map { $0.entry }
+        downloaders
+            .filter { $0.status == .active || $0.status == .initialized || $0.status == .preparing }
+            .map { $0.entry }
     }
 
     var completedEntries: [OfflineDownloaderEntry] {
