@@ -27,14 +27,19 @@ public class OfflineDownloadsManager {
             .filter { $0.status == .active || $0.status == .initialized || $0.status == .preparing }
     }
 
-    var completedEntries: [OfflineDownloaderEntry] {
+    public var completedEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .completed }
     }
 
-    var pausedEntries: [OfflineDownloaderEntry] {
+    public var pausedEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .paused }
+    }
+    
+    public var failedEntries: [OfflineDownloaderEntry] {
+        entries
+            .filter { $0.status == .failed }
     }
 
     var downloaders: [OfflineEntryDownloader] = []
