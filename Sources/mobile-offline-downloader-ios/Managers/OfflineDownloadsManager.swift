@@ -23,17 +23,18 @@ public class OfflineDownloadsManager {
 
     var entries: [OfflineDownloaderEntry] = []
     public var activeEntries: [OfflineDownloaderEntry] {
-        downloaders
+        entries
             .filter { $0.status == .active || $0.status == .initialized || $0.status == .preparing }
-            .map { $0.entry }
     }
 
     var completedEntries: [OfflineDownloaderEntry] {
-        []
+        entries
+            .filter { $0.status == .completed }
     }
 
     var pausedEntries: [OfflineDownloaderEntry] {
-        []
+        entries
+            .filter { $0.status == .paused }
     }
 
     var downloaders: [OfflineEntryDownloader] = []
@@ -48,6 +49,17 @@ public class OfflineDownloadsManager {
     
     init() {
         updateFolder()
+        loadEntries()
+    }
+    
+    private func loadEntries() {
+        OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
+            if case .success(let entries) = result {
+                self.entries = entries
+            } else {
+                // TODO: failed state
+            }
+        }
     }
     
     private func updateFolder() {
@@ -93,15 +105,18 @@ public class OfflineDownloadsManager {
     }
 
     public func pause(entry: OfflineDownloaderEntry) {
-
+        guard let downloader = getDownloader(for: entry) else { return }
+        downloader.pause()
     }
 
     public func cancel(entry: OfflineDownloaderEntry) {
-
+        stopLoading(entry: entry)
+        removeFromQueue(entry: entry)
     }
 
     public func resume(entry: OfflineDownloaderEntry) {
-        
+        guard let downloader = getDownloader(for: entry) else { return }
+        downloader.resume()
     }
     
     func getEntry(for id: String, type: String) -> OfflineDownloaderEntry? {
@@ -128,20 +143,12 @@ public class OfflineDownloadsManager {
     }
 
     public func delete(entry: OfflineDownloaderEntry) throws {
-        if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
-            let managerEntry = entries[index]
-            if let downloader = getDownloader(for: managerEntry) {
-                downloader.cancel()
+        cancel(entry: entry)
+        try removeLocalFiles(for: entry)
+        removeFromStorage(entry: entry)
+    }
 
-                if let index = downloaders.firstIndex(of: downloader) {
-                    downloaders.remove(at: index)
-                }
-            }
-            entries.remove(at: index)
-        }
-        let path = entry.rootPath(with: config.rootPath)
-        try FileManager.default.removeItem(atPath: path)
-
+    private func removeFromStorage(entry: OfflineDownloaderEntry) {
         OfflineStorageManager.shared.delete(entry) {[weak self] result in
             guard let self = self, let object = self.object(for: entry.dataModel) else {
                 return
@@ -156,7 +163,37 @@ public class OfflineDownloadsManager {
             }
         }
     }
-    
+
+    private func removeFromQueue(entry: OfflineDownloaderEntry) {
+        // Search entry in queue
+        if let index = entries.firstIndex(where: { $0.dataModel.id == entry.dataModel.id }) {
+
+            // remove downloader
+            removeDownloader(for: entry)
+            
+            // remove entry
+            entries.remove(at: index)
+        }
+    }
+
+    private func stopLoading(entry: OfflineDownloaderEntry) {
+        guard let downloader = getDownloader(for: entry) else { return }
+        downloader.cancel()
+    }
+
+    private func removeDownloader(for entry: OfflineDownloaderEntry) {
+        guard let downloader = getDownloader(for: entry) else { return }
+        if let index = downloaders.firstIndex(of: downloader) {
+            downloaders.remove(at: index)
+        }
+    }
+
+    private func removeLocalFiles(for entry: OfflineDownloaderEntry) throws {
+        // clear entry directory
+        let path = entry.rootPath(with: config.rootPath)
+        try FileManager.default.removeItem(atPath: path)
+    }
+
     public func savedEntry<T: OfflineDownloadTypeProtocol>(for object: T, completionHandler: @escaping(Result<OfflineDownloaderEntry, Error>) -> Void) {
         do {
             let dataModel = try object.toOfflineModel()
@@ -168,7 +205,7 @@ public class OfflineDownloadsManager {
             completionHandler(.failure(error))
         }
     }
-    
+
     public func savedValue(for entry: OfflineDownloaderEntry, pageIndex: Int ) -> OfflineDownloaderSavedValue {
         guard pageIndex < entry.parts.count && pageIndex >= 0 else { return .unknown }
         let part = entry.parts[pageIndex]
