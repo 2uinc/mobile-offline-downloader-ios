@@ -24,7 +24,7 @@ public class OfflineDownloadsManager {
     var entries: [OfflineDownloaderEntry] = []
     public var activeEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .active || $0.status == .initialized || $0.status == .preparing }
+            .filter { $0.status == .active || $0.status == .preparing }
     }
 
     public var completedEntries: [OfflineDownloaderEntry] {
@@ -32,9 +32,9 @@ public class OfflineDownloadsManager {
             .filter { $0.status == .completed }
     }
 
-    public var pausedEntries: [OfflineDownloaderEntry] {
+    public var waitingEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .paused }
+            .filter { $0.status == .paused || $0.status == .initialized}
     }
     
     public var failedEntries: [OfflineDownloaderEntry] {
@@ -61,6 +61,7 @@ public class OfflineDownloadsManager {
         OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
             if case .success(let entries) = result {
                 self.entries = entries
+                // TODO: added event that entries loaded
             } else {
                 // TODO: failed state
             }
