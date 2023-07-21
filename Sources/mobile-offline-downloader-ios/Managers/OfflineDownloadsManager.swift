@@ -110,9 +110,19 @@ public class OfflineDownloadsManager {
         }
     }
 
+    public func pause(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        pause(entry: entry)
+    }
+
     public func pause(entry: OfflineDownloaderEntry) {
         guard let downloader = getDownloader(for: entry) else { return }
         downloader.pause()
+    }
+
+    public func cancel(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        cancel(entry: entry)
     }
 
     public func cancel(entry: OfflineDownloaderEntry) {
