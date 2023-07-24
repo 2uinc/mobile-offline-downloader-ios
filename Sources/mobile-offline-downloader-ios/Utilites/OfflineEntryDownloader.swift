@@ -55,7 +55,6 @@ class OfflineEntryDownloader: NSObject {
                 // TODO: save error
                 print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
                 status = .failed
-                entry.updateTimestamp()
             }
         }
     }
@@ -87,7 +86,7 @@ class OfflineEntryDownloader: NSObject {
     @MainActor
     private func prepare() async throws {
         guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) })
-        else { throw OfflineEntryDownloaderError.unsupported }
+        else { throw OfflineEntryDownloaderError.unsupported(object: entry) }
         try await helperType.prepareForDownload(entry: entry)
     }
 
@@ -108,12 +107,12 @@ class OfflineEntryDownloader: NSObject {
 
 extension OfflineEntryDownloader {
     enum OfflineEntryDownloaderError: Error, LocalizedError {
-        case unsupported
+        case unsupported(object: OfflineDownloaderEntry)
         
         var errorDescription: String? {
             switch self {
-            case .unsupported:
-                return "This object is not supported"
+            case .unsupported(let entry):
+                return "This entry is not supported \(entry)"
             }
         }
     }
