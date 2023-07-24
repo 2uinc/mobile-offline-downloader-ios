@@ -5,11 +5,14 @@ public final class OfflineDownloaderEntry: Codable {
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
     public var cookieString: String?
+    var updatedTimestamp: Double
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
+    var errors: [Error] = []
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
         self.parts = parts
+        self.updatedTimestamp = Date().timeIntervalSince1970
     }
 
     public func addHtmlPart(_ html: String, baseURL: String?, cookieString: String? = nil) {
@@ -35,6 +38,10 @@ public final class OfflineDownloaderEntry: Codable {
         self.userInfo = userInfo
     }
 
+    func updateTimestamp() {
+        updatedTimestamp = Date().timeIntervalSince1970
+    }
+    
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {
         case dataModel
@@ -42,6 +49,8 @@ public final class OfflineDownloaderEntry: Codable {
         case isDownloaded
         case userInfo
         case status
+        case updatedTimestamp
+        case errors
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -50,6 +59,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(parts, forKey: .parts)
         try container.encode(userInfo, forKey: .userInfo)
         try container.encode(status.rawValue, forKey: .status)
+        try container.encode(updatedTimestamp, forKey: .updatedTimestamp)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -59,6 +69,7 @@ public final class OfflineDownloaderEntry: Codable {
         userInfo = try container.decode(String?.self, forKey: .userInfo)
         let statusRawValue = try container.decode(Int.self, forKey: .status)
         status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
+        updatedTimestamp = try container.decode(Double.self, forKey: .updatedTimestamp)
     }
 }
 
