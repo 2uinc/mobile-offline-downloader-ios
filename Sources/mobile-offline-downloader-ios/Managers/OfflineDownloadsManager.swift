@@ -66,12 +66,11 @@ public class OfflineDownloadsManager {
             .eraseToAnyPublisher()
     }()
 
-    
     init() {
         updateFolder()
         loadEntries()
     }
-    
+
     private func loadEntries() {
         OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
             if case .success(let entries) = result {
@@ -82,7 +81,7 @@ public class OfflineDownloadsManager {
             }
         }
     }
-    
+
     private func updateFolder() {
         do {
             // exclude from cloud backup
