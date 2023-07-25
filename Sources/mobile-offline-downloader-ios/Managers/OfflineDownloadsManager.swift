@@ -25,6 +25,7 @@ public class OfflineDownloadsManager {
     public var activeEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .active || $0.status == .preparing }
+            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
     }
 
     public var completedEntries: [OfflineDownloaderEntry] {
@@ -34,7 +35,9 @@ public class OfflineDownloadsManager {
 
     public var waitingEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .paused || $0.status == .initialized }
+            .filter { $0.status == .paused || $0.status == .initialized}
+            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
+
     }
     
     public var failedEntries: [OfflineDownloaderEntry] {
@@ -70,7 +73,7 @@ public class OfflineDownloadsManager {
     
     private func updateFolder() {
         do {
-                // exclude from cloud backup
+            // exclude from cloud backup
             var cacheURL = config.rootPath.fileURL(isDirectory: true)
             let existingValues = try cacheURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
             if existingValues.isExcludedFromBackup == false || existingValues.isExcludedFromBackup == nil {
@@ -108,6 +111,16 @@ public class OfflineDownloadsManager {
                 downloader.start()
             }
         }
+    }
+    
+    private func startNext() {
+        guard let entry = waitingEntries.first else { return }
+        start(entry: entry)
+    }
+
+    public func pause(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        pause(entry: entry)
     }
 
     public func pause(object: OfflineDownloadTypeProtocol) throws {
@@ -175,6 +188,7 @@ public class OfflineDownloadsManager {
         cancel(entry: entry)
         try removeLocalFiles(for: entry)
         removeFromStorage(entry: entry)
+        startNext()
     }
 
     private func removeFromStorage(entry: OfflineDownloaderEntry) {
@@ -297,19 +311,13 @@ public class OfflineDownloadsManager {
 
                 let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: status, progress: downloader.progress.fractionCompleted)
                 self?.sourcePublisher.send(.statusChanged(object: publisherObject))
-                switch status {
-                case .completed:
-                    print("publisherObject completed")
-                    OfflineStorageManager.shared.save(entry) { result in
-                        switch result {
-                        case .success:
-                            print("✅ Download finished and saved to Realm")
-                        case .failure(let error):
-                            print("⚠️ Download finished but Realm failed error = \(error)")
-                        }
-                    }
-                default:
-                    break
+                
+                if status == .completed || status == .failed || status == .cancelled {
+                    self?.removeDownloader(for: downloader.entry)
+                }
+                
+                if status == .completed || status == .paused || status == .failed || status == .cancelled {
+                    self?.startNext()
                 }
             }
             .store(in: &cancellables)

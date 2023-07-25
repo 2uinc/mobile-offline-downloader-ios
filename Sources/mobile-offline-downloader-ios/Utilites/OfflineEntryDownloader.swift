@@ -40,6 +40,7 @@ class OfflineEntryDownloader: NSObject {
     func start() {
         task = Task {
             do {
+                entry.updateTimestamp()
                 status = .preparing
                 try await prepare()
                 status = .active
@@ -48,6 +49,7 @@ class OfflineEntryDownloader: NSObject {
                     try await download(part: part)
                 }
                 try await saveToDB()
+                entry.updateTimestamp()
                 status = .completed
             } catch {
                 // TODO: save error
@@ -83,7 +85,8 @@ class OfflineEntryDownloader: NSObject {
 
     @MainActor
     private func prepare() async throws {
-        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) }) else { return }
+        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) })
+        else { throw OfflineEntryDownloaderError.unsupported(object: entry) }
         try await helperType.prepareForDownload(entry: entry)
     }
 
@@ -99,5 +102,18 @@ class OfflineEntryDownloader: NSObject {
     
     func resume() {
         start()
+    }
+}
+
+extension OfflineEntryDownloader {
+    enum OfflineEntryDownloaderError: Error, LocalizedError {
+        case unsupported(object: OfflineDownloaderEntry)
+        
+        var errorDescription: String? {
+            switch self {
+            case .unsupported(let entry):
+                return "This entry is not supported \(entry)"
+            }
+        }
     }
 }
