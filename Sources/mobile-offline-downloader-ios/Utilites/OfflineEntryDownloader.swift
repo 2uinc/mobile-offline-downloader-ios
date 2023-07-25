@@ -48,9 +48,9 @@ class OfflineEntryDownloader: NSObject {
                 for part in entry.parts {
                     try await download(part: part)
                 }
-                try await saveToDB()
                 entry.updateTimestamp()
                 status = .completed
+                try await saveToDB()
             } catch {
                 // TODO: save error
                 print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
