@@ -95,6 +95,7 @@ public class OfflineDownloadsManager {
         entry.userInfo = userInfo
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil else { return }
         entries.append(entry)
+        entry.saveToDB(completion: {_ in })
         start(entry: entry)
         let publisherObject = OfflineDownloadsManagerEventObject(
             object:  object,
@@ -121,7 +122,13 @@ public class OfflineDownloadsManager {
     }
     
     private func startNext() {
-        guard let entry = waitingEntries.first else { return }
+        guard let entry = waitingEntries.first else {
+            if activeEntries.isEmpty {
+                // TODO: send queue finished event
+                // TODO: search critical errors
+            }
+            return
+        }
         start(entry: entry)
     }
 
@@ -236,7 +243,9 @@ public class OfflineDownloadsManager {
     private func removeLocalFiles(for entry: OfflineDownloaderEntry) throws {
         // clear entry directory
         let path = entry.rootPath(with: config.rootPath)
-        try FileManager.default.removeItem(atPath: path)
+        if FileManager.default.fileExists(atPath: path) {
+            try FileManager.default.removeItem(atPath: path)
+        }
     }
 
     public func savedEntry<T: OfflineDownloadTypeProtocol>(for object: T, completionHandler: @escaping(Result<OfflineDownloaderEntry, Error>) -> Void) {

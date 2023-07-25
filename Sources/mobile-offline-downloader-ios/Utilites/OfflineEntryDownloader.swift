@@ -50,7 +50,7 @@ class OfflineEntryDownloader: NSObject {
                 }
                 entry.updateTimestamp()
                 status = .completed
-                try await saveToDB()
+                try await entry.saveToDB()
             } catch {
                 // TODO: save error
                 print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
@@ -59,19 +59,6 @@ class OfflineEntryDownloader: NSObject {
         }
     }
     
-    private func saveToDB() async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            OfflineStorageManager.shared.save(entry) { result in
-                switch result {
-                case .success:
-                    continuation.resume()
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-
     private func download(part: OfflineDownloaderEntryPart) async throws {
         var rootPath = entry.rootPath(with: config.rootPath)
         if let index = entry.index(for: part) {

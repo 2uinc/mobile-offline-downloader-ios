@@ -71,6 +71,27 @@ public final class OfflineDownloaderEntry: Codable {
         status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
         updatedTimestamp = try container.decode(Double.self, forKey: .updatedTimestamp)
     }
+    
+    // MARK: Storage
+    func saveToDB() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            saveToDB { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    func saveToDB(completion: @escaping (Result<Void, Error>) -> Void) {
+        OfflineStorageManager.shared.save(self) { result in
+            completion(result)
+        }
+    }
+    
 }
 
 extension OfflineDownloaderEntry: OfflineStorageDataProtocol {
