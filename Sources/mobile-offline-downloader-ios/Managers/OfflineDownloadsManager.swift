@@ -292,6 +292,14 @@ public class OfflineDownloadsManager {
         }
     }
     
+    func canDownload(object: OfflineDownloadTypeProtocol) -> Bool {
+        if let entry = try? object.downloaderEntry() {
+            let type = type(of: object)
+            return type.canDownload(entry: entry)
+        }
+        return false
+    }
+    
     func createDownloader(for entry: OfflineDownloaderEntry) -> OfflineEntryDownloader {
         let downloader = OfflineEntryDownloader(entry: entry, config: config)
         
