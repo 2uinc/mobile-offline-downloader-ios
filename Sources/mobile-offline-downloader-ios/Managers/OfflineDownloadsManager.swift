@@ -11,7 +11,11 @@ public struct OfflineDownloadsManagerEventObject {
     public var status: OfflineDownloaderStatus
     public var progress: Double
 }
-        
+
+public enum OfflineDownloadsQueueEvent {
+    case completed(success: Bool)
+}
+
 public class OfflineDownloadsManager {
     public static var shared: OfflineDownloadsManager = .init()
 
@@ -54,6 +58,14 @@ public class OfflineDownloadsManager {
             .share()
             .eraseToAnyPublisher()
     }()
+    private var sourceQueuePublisher: PassthroughSubject<OfflineDownloadsQueueEvent, Never> = .init()
+    lazy public var queuePublisher: AnyPublisher<OfflineDownloadsQueueEvent, Never> =  {
+        sourceQueuePublisher
+            .receive(on: DispatchQueue.main)
+            .share()
+            .eraseToAnyPublisher()
+    }()
+
     
     init() {
         updateFolder()
@@ -103,7 +115,6 @@ public class OfflineDownloadsManager {
             progress: 0
         )
         sourcePublisher.send(.statusChanged(object: publisherObject))
-
     }
 
     private func start(entry: OfflineDownloaderEntry) {
@@ -124,8 +135,16 @@ public class OfflineDownloadsManager {
     private func startNext() {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
-                // TODO: send queue finished event
-                // TODO: search critical errors
+                if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty {
+                    
+                    sourceQueuePublisher.send(.completed(success: false))
+                    
+                    failedEntries.forEach {
+                        $0.errors = []
+                    }
+                } else {
+                    sourceQueuePublisher.send(.completed(success: true))
+                }
             }
             return
         }

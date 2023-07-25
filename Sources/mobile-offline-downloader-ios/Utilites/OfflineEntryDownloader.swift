@@ -52,7 +52,7 @@ class OfflineEntryDownloader: NSObject {
                 status = .completed
                 try await entry.saveToDB()
             } catch {
-                // TODO: save error
+                entry.errors.append(error)
                 print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
                 status = .failed
             }
