@@ -96,6 +96,13 @@ public class OfflineDownloadsManager {
         guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil else { return }
         entries.append(entry)
         start(entry: entry)
+        let publisherObject = OfflineDownloadsManagerEventObject(
+            object:  object,
+            status: .initialized,
+            progress: 0
+        )
+        sourcePublisher.send(.statusChanged(object: publisherObject))
+
     }
 
     private func start(entry: OfflineDownloaderEntry) {
@@ -116,11 +123,6 @@ public class OfflineDownloadsManager {
     private func startNext() {
         guard let entry = waitingEntries.first else { return }
         start(entry: entry)
-    }
-
-    public func pause(object: OfflineDownloadTypeProtocol) throws {
-        let entry = try object.downloaderEntry()
-        pause(entry: entry)
     }
 
     public func pause(object: OfflineDownloadTypeProtocol) throws {
@@ -269,11 +271,16 @@ public class OfflineDownloadsManager {
     public func eventObject(for object: OfflineDownloadTypeProtocol, completionBlock: @escaping (Result<OfflineDownloadsManagerEventObject, Error>) -> Void) {
         do {
             let entry = try object.downloaderEntry()
-            if let entry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type),
-                let downloader = getDownloader(for: entry){
-                let progress = downloader.progress.fractionCompleted
-                let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
-                completionBlock(.success(eventObject))
+            if let entry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type){
+                if let downloader = getDownloader(for: entry) {
+                    let progress = downloader.progress.fractionCompleted
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
+                    completionBlock(.success(eventObject))
+                } else {
+                    let progress: Double = entry.status == .completed ? 1 : 0
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
+                    completionBlock(.success(eventObject))
+                }
                 return
             }
 
