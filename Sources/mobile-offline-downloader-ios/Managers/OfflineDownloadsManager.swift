@@ -39,7 +39,13 @@ public class OfflineDownloadsManager {
 
     public var waitingEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .paused || $0.status == .initialized}
+            .filter { $0.status == .initialized }
+            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
+    }
+    
+    public var pausedEntries: [OfflineDownloaderEntry] {
+        entries
+            .filter { $0.status == .paused }
             .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
 
     }
@@ -104,31 +110,52 @@ public class OfflineDownloadsManager {
     public func addAndStart(object: OfflineDownloadTypeProtocol, userInfo: String? = nil) throws {
         let entry = try object.downloaderEntry()
         entry.userInfo = userInfo
-        guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil else { return }
-        entries.append(entry)
-        entry.saveToDB(completion: {_ in })
-        start(entry: entry)
-        let publisherObject = OfflineDownloadsManagerEventObject(
-            object:  object,
-            status: .initialized,
-            progress: 0
-        )
-        sourcePublisher.send(.statusChanged(object: publisherObject))
+        if let queuedEntry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type) {
+            // Resume download if state is paused
+            switch queuedEntry.status {
+            case .paused, .cancelled, .failed:
+                guard !start(entry: entry) else { return }
+                queuedEntry.status = .initialized
+                guard getDownloader(for: queuedEntry) == nil else { return }
+                let publisherObject = OfflineDownloadsManagerEventObject(
+                    object:  object,
+                    status: .initialized,
+                    progress: 0
+                )
+                sourcePublisher.send(.statusChanged(object: publisherObject))
+            default:
+                return
+            }
+        } else {
+            // Add new entry and start
+            entries.append(entry)
+            entry.saveToDB(completion: {_ in })
+            guard !start(entry: entry) else { return }
+            let publisherObject = OfflineDownloadsManagerEventObject(
+                object:  object,
+                status: .initialized,
+                progress: 0
+            )
+            sourcePublisher.send(.statusChanged(object: publisherObject))
+        }
     }
 
-    private func start(entry: OfflineDownloaderEntry) {
-        guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) != nil else { return }
+    private func start(entry: OfflineDownloaderEntry) -> Bool {
+        guard getEntry(for: entry.dataModel.id, type: entry.dataModel.type) != nil else { return false }
         if entry.status != .completed && activeEntries.count < config.limitOfConcurrentDownloads {
             if let downloader = getDownloader(for: entry) {
                 if downloader.status.canStart {
                     downloader.start()
+                    return true
                 }
             } else {
                 let downloader = createDownloader(for: entry)
                 downloaders.append(downloader)
                 downloader.start()
+                return true
             }
         }
+        return false
     }
     
     private func startNext() {
