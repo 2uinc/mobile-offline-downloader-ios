@@ -34,7 +34,7 @@ public class OfflineDownloadsManager {
 
     public var waitingEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .paused || $0.status == .initialized}
+            .filter { $0.status == .paused || $0.status == .initialized }
     }
     
     public var failedEntries: [OfflineDownloaderEntry] {
@@ -110,14 +110,37 @@ public class OfflineDownloadsManager {
         }
     }
 
+    public func pause(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        pause(entry: entry)
+    }
+
     public func pause(entry: OfflineDownloaderEntry) {
         guard let downloader = getDownloader(for: entry) else { return }
         downloader.pause()
     }
 
+    public func cancel(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        cancel(entry: entry)
+    }
+
     public func cancel(entry: OfflineDownloaderEntry) {
         stopLoading(entry: entry)
         removeFromQueue(entry: entry)
+    }
+
+    public func deleteDownloadingEntries() throws {
+        try entries.filter {
+            switch $0.status {
+            case .initialized, .active, .preparing, .paused, .failed, .cancelled:
+                return true
+            default:
+                return false
+            }
+        }.forEach {
+            try delete(entry: $0)
+        }
     }
 
     public func resume(entry: OfflineDownloaderEntry) {

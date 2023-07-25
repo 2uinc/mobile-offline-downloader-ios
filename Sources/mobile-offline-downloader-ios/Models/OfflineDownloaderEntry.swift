@@ -5,7 +5,7 @@ public final class OfflineDownloaderEntry: Codable {
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
     public var cookieString: String?
-    @objc dynamic var status: OfflineDownloaderStatus = .initialized
+    @objc public dynamic var status: OfflineDownloaderStatus = .initialized
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
