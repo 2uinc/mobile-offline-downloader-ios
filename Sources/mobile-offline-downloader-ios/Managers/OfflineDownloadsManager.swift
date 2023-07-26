@@ -132,8 +132,9 @@ public class OfflineDownloadsManager {
         if entry.status != .completed {
             if entry.status != .initialized {
                 entry.status = .initialized
-                sendStatusEvent(for: entry)
             }
+            
+            sendStatusEvent(for: entry)
 
             if activeEntries.count < config.limitOfConcurrentDownloads {
                 let downloader = getDownloader(for: entry) ?? createDownloader(for: entry)
