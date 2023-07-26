@@ -38,7 +38,7 @@ class OfflineEntryDownloader: NSObject {
     }
 
     func start() {
-        task = Task {
+        task = Task(priority: .background) {
             do {
                 entry.updateTimestamp()
                 if entry.parts.isEmpty {
