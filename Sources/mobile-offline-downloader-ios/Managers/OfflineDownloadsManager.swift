@@ -144,7 +144,7 @@ public class OfflineDownloadsManager {
         }
     }
     
-    private func startNext() {
+    private func startNext(latestStatus: OfflineDownloaderStatus) {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
                 if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty {
@@ -154,7 +154,7 @@ public class OfflineDownloadsManager {
                     failedEntries.forEach {
                         $0.errors = []
                     }
-                } else {
+                } else if latestStatus == .completed {
                     sourceQueuePublisher.send(.completed(success: true))
                 }
             }
@@ -227,7 +227,7 @@ public class OfflineDownloadsManager {
         cancel(entry: entry)
         try removeLocalFiles(for: entry)
         removeFromStorage(entry: entry)
-        startNext()
+        startNext(latestStatus: .removed)
     }
 
     private func removeFromStorage(entry: OfflineDownloaderEntry) {
@@ -354,7 +354,7 @@ public class OfflineDownloadsManager {
         downloader.statusPublisher
             .receive(on: DispatchQueue.main)
             .sink {[weak self, weak downloader] status in
-                guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
+                guard let downloader = downloader else { return }
 
                 self?.sendStatusEvent(for: downloader.entry, progress: downloader.progress.fractionCompleted)
                 
@@ -363,7 +363,7 @@ public class OfflineDownloadsManager {
                 }
                 
                 if status == .completed || status == .paused || status == .failed || status == .cancelled {
-                    self?.startNext()
+                    self?.startNext(latestStatus: status)
                 }
             }
             .store(in: &cancellables)
