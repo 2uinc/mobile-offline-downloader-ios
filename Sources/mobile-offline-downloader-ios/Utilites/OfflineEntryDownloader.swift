@@ -9,7 +9,7 @@ import Combine
     }
 
     var canStart: Bool {
-        return self == .initialized || self == .paused
+        return self == .initialized || self == .paused || self == .failed
     }
 }
 
@@ -41,8 +41,11 @@ class OfflineEntryDownloader: NSObject {
         task = Task {
             do {
                 entry.updateTimestamp()
-                status = .preparing
-                try await prepare()
+                if entry.parts.isEmpty {
+                    // skip if data prepared already
+                    status = .preparing
+                    try await prepare()
+                }
                 status = .active
                 progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
@@ -85,11 +88,7 @@ class OfflineEntryDownloader: NSObject {
     func pause() {
         task?.cancel()
         status = .paused
-    }
-    
-    func resume() {
-        start()
-    }
+    }    
 }
 
 extension OfflineEntryDownloader {
