@@ -110,7 +110,7 @@ public class OfflineDownloadsManager {
     public func start(object: OfflineDownloadTypeProtocol, userInfo: String? = nil) throws {
         let entry = try object.downloaderEntry()
         entry.userInfo = userInfo
-        if getEntry(for: entry.dataModel.id, type: entry.dataModel.type) == nil {
+        if getQueuedEntry(for: entry) == nil {
             entries.append(entry)
             entry.saveToDB(completion: {_ in })
         }
@@ -128,7 +128,7 @@ public class OfflineDownloadsManager {
     }
 
     private func start(entry: OfflineDownloaderEntry) {
-        guard let entry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type) else { return }
+        guard let entry = getQueuedEntry(for: entry) else { return }
         if entry.status != .completed {
             if entry.status != .initialized {
                 entry.status = .initialized
@@ -149,9 +149,9 @@ public class OfflineDownloadsManager {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
                 if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty {
-                    
+
                     sourceQueuePublisher.send(.completed(success: false))
-                    
+
                     failedEntries.forEach {
                         $0.errors = []
                     }
@@ -170,8 +170,12 @@ public class OfflineDownloadsManager {
     }
 
     public func pause(entry: OfflineDownloaderEntry) {
-        guard let downloader = getDownloader(for: entry) else { return }
-        downloader.pause()
+        if let downloader = getDownloader(for: entry) {
+            downloader.pause()
+        } else if let entry = getQueuedEntry(for: entry) {
+            entry.status = .paused
+            sendStatusEvent(for: entry)
+        }
     }
 
     public func cancel(object: OfflineDownloadTypeProtocol) throws {
@@ -199,6 +203,14 @@ public class OfflineDownloadsManager {
 
     public func resume(entry: OfflineDownloaderEntry) {
         start(entry: entry)
+    }
+    
+    func getQueuedEntry(for entry: OfflineDownloaderEntry) -> OfflineDownloaderEntry? {
+        getEntry(for: entry.dataModel)
+    }
+    
+    func getEntry(for dataModel: OfflineStorageDataModel) -> OfflineDownloaderEntry? {
+        getEntry(for: dataModel.id, type: dataModel.type)
     }
     
     func getEntry(for id: String, type: String) -> OfflineDownloaderEntry? {
@@ -304,7 +316,7 @@ public class OfflineDownloadsManager {
     public func eventObject(for object: OfflineDownloadTypeProtocol, completionBlock: @escaping (Result<OfflineDownloadsManagerEventObject, Error>) -> Void) {
         do {
             let entry = try object.downloaderEntry()
-            if let entry = getEntry(for: entry.dataModel.id, type: entry.dataModel.type){
+            if let entry = getQueuedEntry(for: entry) {
                 if let downloader = getDownloader(for: entry) {
                     let progress = downloader.progress.fractionCompleted
                     let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
