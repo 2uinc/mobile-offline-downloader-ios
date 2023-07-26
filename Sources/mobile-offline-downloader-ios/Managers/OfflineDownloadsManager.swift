@@ -81,7 +81,9 @@ public class OfflineDownloadsManager {
         OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
             if case .success(let entries) = result {
                 self.entries = entries
-                // TODO: added event that entries loaded
+                for entry in self.activeEntries + self.waitingEntries {
+                    self.start(entry: entry)
+                }
             } else {
                 // TODO: failed state
             }
@@ -203,6 +205,11 @@ public class OfflineDownloadsManager {
 
     public func resume(entry: OfflineDownloaderEntry) {
         start(entry: entry)
+    }
+    
+    public func resume(object: OfflineDownloadTypeProtocol) throws {
+        let entry = try object.downloaderEntry()
+        resume(entry: entry)
     }
     
     func getQueuedEntry(for entry: OfflineDownloaderEntry) -> OfflineDownloaderEntry? {
@@ -368,7 +375,7 @@ public class OfflineDownloadsManager {
             .receive(on: DispatchQueue.main)
             .sink {[weak self, weak downloader] status in
                 guard let downloader = downloader else { return }
-
+                
                 self?.sendStatusEvent(for: downloader.entry, progress: downloader.progress.fractionCompleted)
                 
                 if status == .completed || status == .failed || status == .cancelled || status == .paused {

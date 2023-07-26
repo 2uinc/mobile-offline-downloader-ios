@@ -44,9 +44,11 @@ class OfflineEntryDownloader: NSObject {
                 if entry.parts.isEmpty {
                     // skip if data prepared already
                     status = .preparing
+                    try await entry.saveToDB()
                     try await prepare()
                 }
                 status = .active
+                try await entry.saveToDB()
                 progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
                     try await download(part: part)
@@ -59,6 +61,7 @@ class OfflineEntryDownloader: NSObject {
                     entry.errors.append(error)
                     print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
                     status = .failed
+                    entry.saveToDB(completion: {_ in})
                 }
             }
         }
