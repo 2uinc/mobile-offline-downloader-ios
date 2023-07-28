@@ -139,6 +139,10 @@ extension OfflineBackgroundWebview: WKNavigationDelegate {
         startErrorTimer()
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        stopErrorTimer()
+    }
+    
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         stopErrorTimer()
         let request = navigationAction.request

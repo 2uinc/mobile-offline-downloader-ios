@@ -47,6 +47,7 @@ class OfflineEntryPartDownloader {
     
     private func downloadLinks(with extractor: OfflineHTMLLinksExtractor) async throws {
         for link in part.links {
+            if Task.isCancelled { throw URLError(.cancelled) }
             if !link.isDownloaded {
                 if shouldUseVideoDownloader(for: link) {
                     let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)

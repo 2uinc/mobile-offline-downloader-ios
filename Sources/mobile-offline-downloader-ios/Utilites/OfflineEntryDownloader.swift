@@ -9,7 +9,7 @@ import Combine
     }
 
     var canStart: Bool {
-        return self == .initialized || self == .paused
+        return self == .initialized || self == .paused || self == .failed
     }
 }
 
@@ -38,38 +38,35 @@ class OfflineEntryDownloader: NSObject {
     }
 
     func start() {
-        task = Task {
+        task = Task(priority: .background) {
             do {
-                status = .preparing
-                try await prepare()
+                entry.updateTimestamp()
+                if entry.parts.isEmpty {
+                    // skip if data prepared already
+                    status = .preparing
+                    try await entry.saveToDB()
+                    try await prepare()
+                }
                 status = .active
+                try await entry.saveToDB()
                 progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
                     try await download(part: part)
                 }
-                try await saveToDB()
+                entry.updateTimestamp()
                 status = .completed
+                try await entry.saveToDB()
             } catch {
-                // TODO: save error
-                print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
-                status = .failed
-            }
-        }
-    }
-    
-    private func saveToDB() async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            OfflineStorageManager.shared.save(entry) { result in
-                switch result {
-                case .success:
-                    continuation.resume()
-                case .failure(let error):
-                    continuation.resume(throwing: error)
+                if !error.isCancelled {
+                    entry.errors.append(error)
+                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
+                    status = .failed
+                    entry.saveToDB(completion: {_ in})
                 }
             }
         }
     }
-
+    
     private func download(part: OfflineDownloaderEntryPart) async throws {
         var rootPath = entry.rootPath(with: config.rootPath)
         if let index = entry.index(for: part) {
@@ -83,7 +80,8 @@ class OfflineEntryDownloader: NSObject {
 
     @MainActor
     private func prepare() async throws {
-        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) }) else { return }
+        guard let helperType = config.downloadTypes.first(where: { $0.canDownload(entry: entry) })
+        else { throw OfflineEntryDownloaderError.unsupported(object: entry) }
         try await helperType.prepareForDownload(entry: entry)
     }
 
@@ -95,9 +93,18 @@ class OfflineEntryDownloader: NSObject {
     func pause() {
         task?.cancel()
         status = .paused
-    }
-    
-    func resume() {
-        start()
+    }    
+}
+
+extension OfflineEntryDownloader {
+    enum OfflineEntryDownloaderError: Error, LocalizedError {
+        case unsupported(object: OfflineDownloaderEntry)
+        
+        var errorDescription: String? {
+            switch self {
+            case .unsupported(let entry):
+                return "This entry is not supported \(entry)"
+            }
+        }
     }
 }
