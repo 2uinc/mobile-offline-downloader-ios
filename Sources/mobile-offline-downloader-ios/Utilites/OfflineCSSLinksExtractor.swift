@@ -3,6 +3,7 @@ import Foundation
 struct OfflineCSSLinksExtractor: OfflineLinksExtractorProtocol {
     var contents: String
     var baseUrl: String
+    var linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
 
     func links() -> [OfflineDownloaderLink] {
         let links = getCssLinks()
@@ -18,7 +19,7 @@ struct OfflineCSSLinksExtractor: OfflineLinksExtractorProtocol {
         for link in links {
             distinctLinks.appendDistinct(link)
             let extractedLink = link.link.fixLink(with: baseUrl)
-            link.extractedLink = OfflineDownloadsManager.shared.config.linksHandler?(extractedLink)
+            link.extractedLink = linksHandler?(extractedLink)
         }
         
         return distinctLinks

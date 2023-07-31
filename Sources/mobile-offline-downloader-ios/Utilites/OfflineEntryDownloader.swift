@@ -73,7 +73,12 @@ class OfflineEntryDownloader: NSObject {
             rootPath += "/\(index)"
         }
         
-        let downloader = OfflineEntryPartDownloader(part: part, rootPath: rootPath, htmlIndexName: config.indexFileName)
+        let downloader = OfflineEntryPartDownloader(
+            part: part,
+            rootPath: rootPath,
+            htmlIndexName: config.indexFileName,
+            linksHandler: config.linksHandler
+        )
         progress.addChild(downloader.progress, withPendingUnitCount: 1)
         try await downloader.download()
     }

@@ -6,12 +6,19 @@ class OfflineEntryPartDownloader {
     var htmlIndexName: String
     var shouldCacheCSS: Bool
     var progress: Progress = Progress()
+    var linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
     
-    init(part: OfflineDownloaderEntryPart, rootPath: String, htmlIndexName: String, shouldCacheCSS: Bool = false) {
+    init(part: OfflineDownloaderEntryPart,
+         rootPath: String,
+         htmlIndexName: String,
+         shouldCacheCSS: Bool = false,
+         linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+    ) {
         self.part = part
         self.rootPath = rootPath
         self.htmlIndexName = htmlIndexName
         self.shouldCacheCSS = shouldCacheCSS
+        self.linksHandler = linksHandler
     }
     
     func download() async throws {
@@ -40,7 +47,7 @@ class OfflineEntryPartDownloader {
         case let.url(url):
             progress.totalUnitCount = 1
             let link = OfflineDownloaderLink(link: url)
-            link.extractedLink = OfflineDownloadsManager.shared.config.linksHandler?(url)
+            link.extractedLink = linksHandler?(url)
             part.append(links: [link])
             try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
         }
