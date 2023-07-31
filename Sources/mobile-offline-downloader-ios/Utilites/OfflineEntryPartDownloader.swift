@@ -40,6 +40,7 @@ class OfflineEntryPartDownloader {
         case let.url(url):
             progress.totalUnitCount = 1
             let link = OfflineDownloaderLink(link: url)
+            link.extractedLink = OfflineDownloadsManager.shared.config.linksHandler?(url)
             part.append(links: [link])
             try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
         }

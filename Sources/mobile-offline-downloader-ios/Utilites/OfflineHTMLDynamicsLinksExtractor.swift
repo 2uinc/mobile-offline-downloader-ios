@@ -64,7 +64,9 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             var links = try await linksExtractor.links()
             links.appendDistinct(data.links.map {
-                OfflineDownloaderLink(link: $0.fixLink(with: baseString))
+                let link = OfflineDownloaderLink(link: $0.fixLink(with: baseString))
+                link.extractedLink = OfflineDownloadsManager.shared.config.linksHandler?(link.link)
+                return link
             })
             return links
         } catch {

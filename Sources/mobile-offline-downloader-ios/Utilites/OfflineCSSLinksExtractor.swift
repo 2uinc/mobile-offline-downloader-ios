@@ -17,7 +17,8 @@ struct OfflineCSSLinksExtractor: OfflineLinksExtractorProtocol {
         var distinctLinks: [OfflineDownloaderLink] = []
         for link in links {
             distinctLinks.appendDistinct(link)
-            link.extractedLink = link.link.fixLink(with: baseUrl)
+            let extractedLink = link.link.fixLink(with: baseUrl)
+            link.extractedLink = OfflineDownloadsManager.shared.config.linksHandler?(extractedLink)
         }
         
         return distinctLinks
