@@ -6,11 +6,13 @@ class OfflineCSSLinkDownloader {
     var shouldCache: Bool
     var progress: Progress = Progress()
     var cookieString: String?
+    var linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
     
-    init(link: OfflineDownloaderLink, rootPath: String, shouldCache: Bool) {
+    init(link: OfflineDownloaderLink, rootPath: String, shouldCache: Bool, linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?) {
         self.link = link
         self.rootPath = rootPath
         self.shouldCache = shouldCache
+        self.linksHandler = linksHandler
     }
 
     func download() async throws {
@@ -23,7 +25,7 @@ class OfflineCSSLinkDownloader {
             let cssFolder = path.removeLastPathComponent()
             var contents = try String(contentsOf: path.fileURL())
             let baseURL = link.link
-            let links = OfflineCSSLinksExtractor(contents: contents, baseUrl: baseURL).links()
+            let links = OfflineCSSLinksExtractor(contents: contents, baseUrl: baseURL, linksHandler: linksHandler).links()
             let linksProgress = Progress()
             linksProgress.totalUnitCount = Int64(links.count)
             progress.addChild(linksProgress, withPendingUnitCount: 1)
