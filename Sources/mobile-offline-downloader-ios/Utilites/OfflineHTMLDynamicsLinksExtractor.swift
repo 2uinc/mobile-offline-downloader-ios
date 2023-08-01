@@ -8,6 +8,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     private var baseURL: URL?
     private var webview: OfflineBackgroundWebview?
     private var latestData: OfflineBackgroundWebview.OfflineBackgroundWebviewData?
+    private var linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
     
     public var webConfiguration: WKWebViewConfiguration {
         webview?.configuration ?? WKWebViewConfiguration()
@@ -19,13 +20,23 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         webview?.latestRedirectURL
     }
 
-    public init(html: String, baseURL: URL?, configuration: WKWebViewConfiguration? = nil) {
+    public init(
+        html: String,
+        baseURL: URL?,
+        configuration: WKWebViewConfiguration? = nil,
+        linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+    ) {
         self.initHtml = html
         self.baseURL = baseURL
         self.webview = webviewForConfiguration(configuration)
+        self.linksHandler = linksHandler
     }
 
-    public init(url: URL, configuration: WKWebViewConfiguration? = nil) {
+    public init(
+        url: URL,
+        configuration: WKWebViewConfiguration? = nil,
+        linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+    ) {
         self.initURL = url
         self.webview = webviewForConfiguration(configuration)
     }
@@ -64,7 +75,9 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             var links = try await linksExtractor.links()
             links.appendDistinct(data.links.map {
-                OfflineDownloaderLink(link: $0.fixLink(with: baseString))
+                let link = OfflineDownloaderLink(link: $0.fixLink(with: baseString))
+                link.extractedLink = linksHandler?(link.link)
+                return link
             })
             return links
         } catch {

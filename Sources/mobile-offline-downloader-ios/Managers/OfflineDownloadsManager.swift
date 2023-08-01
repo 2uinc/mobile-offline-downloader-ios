@@ -19,7 +19,7 @@ public enum OfflineDownloadsQueueEvent {
 public class OfflineDownloadsManager {
     public static var shared: OfflineDownloadsManager = .init()
 
-    var config: OfflineDownloaderConfig = OfflineDownloaderConfig() {
+    public private(set) var config: OfflineDownloaderConfig = OfflineDownloaderConfig() {
         didSet {
             updateFolder()
         }

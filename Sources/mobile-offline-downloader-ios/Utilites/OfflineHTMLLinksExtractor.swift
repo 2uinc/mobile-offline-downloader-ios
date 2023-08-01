@@ -259,6 +259,8 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                         tag: tag.tagName(),
                         attribute: attr
                     )
+                    webLink.extractedLink = extractedLink(for: webLink.link)
+                    
                     links.append(webLink)
                 }
             }
@@ -279,11 +281,20 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                         tag: tag.tagName(),
                         attribute: attr
                     )
+                    webLink.extractedLink = extractedLink(for: webLink.link)
                     links.append(webLink)
                 }
             }
         }
         return links
+    }
+    
+    private func extractedLink(for linkString: String) -> String? {
+        if let link = config.linksHandler?(linkString).fixLink(with: baseURL),
+           link != linkString {
+            return link
+        }
+        return nil
     }
 
     private func canLoad(link: String, for tagName: String) -> Bool {
@@ -292,6 +303,10 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
 
         if tagName.lowercased() == "a" {
+            if let _ = extractedLink(for: link) {
+                return true
+            }
+            
             if let url = URL(string: link) {
                 let fileName = url.path.lowercased()
                 let fileExtension = fileName.components(separatedBy: ".").last ?? fileName
