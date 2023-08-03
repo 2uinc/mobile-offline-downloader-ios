@@ -250,11 +250,29 @@ public class OfflineDownloadsManager {
         startNext(latestStatus: .removed)
     }
 
-    private func removeFromStorage(entry: OfflineDownloaderEntry) {
+    public func deleteCompletedEntries(comletion: @escaping () -> Void) throws {
+        let group = DispatchGroup()
+        try completedEntries.forEach { entry in
+            try removeLocalFiles(for: entry)
+            group.enter()
+            removeFromStorage(entry: entry) {
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            comletion()
+        }
+    }
+
+    private func removeFromStorage(
+        entry: OfflineDownloaderEntry,
+        comletion: (() -> Void)? = nil
+    ) {
         OfflineStorageManager.shared.delete(entry) {[weak self] result in
             if case .success = result {
                 entry.status = .removed
                 self?.sendStatusEvent(for: entry)
+                comletion?()
             }
         }
     }
