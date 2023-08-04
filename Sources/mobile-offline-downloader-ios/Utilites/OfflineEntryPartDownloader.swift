@@ -63,7 +63,7 @@ class OfflineEntryPartDownloader {
                     progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
                     try await videoDownloader.download()
                 } else if link.isCssLink {
-                    let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS)
+                    let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS, linksHandler: linksHandler)
                     cssDownloader.cookieString = part.cookieString
                     progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
                     try await cssDownloader.download()

@@ -257,7 +257,8 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                     let webLink = OfflineDownloaderLink(
                         link: link.fixLink(with: baseURL),
                         tag: tag.tagName(),
-                        attribute: attr
+                        attribute: attr,
+                        typeAttribute: try? tag.attr("type")
                     )
                     webLink.extractedLink = extractedLink(for: webLink.link)
                     
@@ -279,7 +280,8 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                     let webLink = OfflineDownloaderLink(
                         link: link.fixLink(with: baseURL),
                         tag: tag.tagName(),
-                        attribute: attr
+                        attribute: attr,
+                        typeAttribute: try? tag.attr("type")
                     )
                     webLink.extractedLink = extractedLink(for: webLink.link)
                     links.append(webLink)

@@ -31,6 +31,7 @@ public class OfflineDownloaderLink: Codable {
     public let link: String
     let tag: String?
     let attribute: String?
+    let typeAttribute: String?
     var extractedLink: String?
     var downloadedRelativePath: String?
     var videoLink: OfflineDownloaderVideoLink?
@@ -40,7 +41,13 @@ public class OfflineDownloaderLink: Codable {
     }
 
     public var isCssLink: Bool {
-        tag?.lowercased() == "link"
+        if tag?.lowercased() == "link" {
+            if typeAttribute?.contains("image") == true {
+                return false
+            }
+            return true
+        }
+        return false
     }
 
     public var isIframe: Bool {
@@ -71,10 +78,11 @@ public class OfflineDownloaderLink: Codable {
         downloadedRelativePath != nil
     }
 
-    init(link: String, tag: String? = nil, attribute: String? = nil) {
+    init(link: String, tag: String? = nil, attribute: String? = nil, typeAttribute: String? = nil) {
         self.link = link
         self.tag = tag
         self.attribute = attribute
+        self.typeAttribute = typeAttribute
     }
     
     private enum CodingKeys : String, CodingKey {
@@ -84,6 +92,7 @@ public class OfflineDownloaderLink: Codable {
         case extractedLink
         case downloadedRelativePath
         case videoLink
+        case typeAttribute
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -94,6 +103,7 @@ public class OfflineDownloaderLink: Codable {
         try container.encode(extractedLink, forKey: .extractedLink)
         try container.encode(downloadedRelativePath, forKey: .downloadedRelativePath)
         try container.encode(videoLink, forKey: .videoLink)
+        try container.encode(typeAttribute, forKey: .typeAttribute)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -104,6 +114,7 @@ public class OfflineDownloaderLink: Codable {
         extractedLink = try container.decode(String?.self, forKey: .extractedLink)
         downloadedRelativePath = try container.decode(String?.self, forKey: .downloadedRelativePath)
         videoLink = try container.decode(OfflineDownloaderVideoLink?.self, forKey: .videoLink)
+        typeAttribute = try container.decode(String?.self, forKey: .typeAttribute)
     }
 }
 

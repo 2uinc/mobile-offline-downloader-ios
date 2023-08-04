@@ -14,6 +14,8 @@ public struct OfflineDownloadsManagerEventObject {
 
 public enum OfflineDownloadsQueueEvent {
     case completed(success: Bool)
+    case entriesStartLoad
+    case entriesLoaded(error: Error?)
 }
 
 public class OfflineDownloadsManager {
@@ -26,6 +28,7 @@ public class OfflineDownloadsManager {
     }
 
     var entries: [OfflineDownloaderEntry] = []
+    public var isLoading: Bool = false
     public var activeEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .active || $0.status == .preparing }
@@ -78,14 +81,20 @@ public class OfflineDownloadsManager {
     }
 
     private func loadEntries() {
+        isLoading = true
+        sourceQueuePublisher.send(.entriesStartLoad)
         OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
-            if case .success(let entries) = result {
+            self.isLoading = false
+            switch result {
+            case .success(let entries):
                 self.entries = entries
                 for entry in self.activeEntries + self.waitingEntries {
                     self.start(entry: entry)
+                    
                 }
-            } else {
-                // TODO: failed state
+                self.sourceQueuePublisher.send(.entriesLoaded(error: nil))
+            case .failure(let error):
+                self.sourceQueuePublisher.send(.entriesLoaded(error: error))
             }
         }
     }
