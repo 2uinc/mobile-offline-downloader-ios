@@ -90,7 +90,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     private func container(for elements: [Element]) throws -> Element {
         let container = Element(Tag("div"), "")
         for element in elements {
-            try container.appendChild(element)
+            try container.append(try element.outerHtml())
         }
         
         return container
