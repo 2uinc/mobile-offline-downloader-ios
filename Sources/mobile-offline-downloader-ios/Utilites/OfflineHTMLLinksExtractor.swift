@@ -31,62 +31,96 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     func setRelativePath(for link: OfflineDownloaderLink) throws {
         guard link.isDownloaded else { return }
 
-        if link.videoLinks != nil {
-            if link.isAudio {
-                try replacePathForAudio(with: link)
-            } else if link.isVideo {
-                try replacePathForVideo(with: link)
-            } else if link.isIframe {
-                try replaceVideoPathForIframe(with: link)
-            } else if link.isScript {
-                try replaceVideoPathForScript(with: link)
+        if let elements = try mediaElements(for: link) {
+            if link.isScript {
+                try replaceVideoPathForScript(with: link, and: elements)
+            } else {
+                try replace(link: link, with: elements)
             }
         } else {
             try replacePath(for: link)
         }
     }
-    private func replaceVideoPathForIframe(with link: OfflineDownloaderLink) throws {
-        guard link.isDownloaded, let videoLinks = link.videoLinks else { return }
-        if videoLink.videoLink.isAudio {
-            try replacePathForAudio(with: link)
-        } else  {
-            try replacePathForVideo(with: link)
+    
+    private func mediaElements(for link: OfflineDownloaderLink) throws -> [Element]? {
+        guard link.isDownloaded, let videoLinks = link.videoLinks else { return nil }
+        var elements: [Element] = []
+        for link in videoLinks {
+            if link.videoLink.isAudio {
+                if let audioElement = try audioElement(from: link) {
+                    elements.append(audioElement)
+                }
+            } else  {
+                if let videoElement = try videoElement(from: link) {
+                    elements.append(videoElement)
+                }
+            }
         }
+        
+        return elements
     }
 
-    private func replaceVideoPathForScript(with link: OfflineDownloaderLink) throws {
+    private func replace(link: OfflineDownloaderLink, with elements: [Element]) throws {
         guard link.isDownloaded,
               let tagName = link.tag,
-              let attributeName = link.attribute,
-              let videoLink = link.videoLink
+              let attributeName = link.attribute
+        else { return }
+        
+        let tags = try document.getElementsByTag(tagName)
+        for tag in tags {
+            if let linkString = try? tag.attr(attributeName),
+               !linkString.isEmpty,
+               linkString.fixLink(with: baseURL) == link.link {
+                let element = try container(for: elements)
+                for container in config.mediaContainerClasses {
+                    if let parent = parent(
+                        for: container,
+                        from: tag
+                    ) {
+                        try parent.replaceWith(element)
+                        return
+                    }
+                }
+                
+                try tag.replaceWith(element)
+            }
+        }
+    }
+        
+    private func container(for elements: [Element]) throws -> Element {
+        let container = Element(Tag("div"), "")
+        for element in elements {
+            try container.appendChild(element)
+        }
+        
+        return container
+    }
+    
+    private func replaceVideoPathForScript(with link: OfflineDownloaderLink, and elements: [Element]) throws {
+        guard link.isDownloaded,
+              let tagName = link.tag,
+              let attributeName = link.attribute
         else { return }
         
         if let id = link.link.lastPathComponent().components(separatedBy: ".").first {
             let tags = try document.getElementsByClass("wistia_async_\(id)")
             for tag in tags {
-                var element: Element?
-                if videoLink.videoLink.isAudio {
-                    element = try audioElement(from: link)
-                } else {
-                    element = try videoElement(from: link)
+                let centerElement = try container(for: elements)
+                for container in config.mediaContainerClasses {
+                    if let parent = parent(
+                        for: container,
+                        from: tag
+                    ) {
+                        try parent.replaceWith(centerElement)
+                        return
+                    }
                 }
                 
-                if let centerElement = element {
-                    for container in config.mediaContainerClasses {
-                        if let parent = parent(
-                            for: container,
-                            from: tag
-                        ) {
-                            try parent.replaceWith(centerElement)
-                            return
-                        }
-                    }
-                    
-                    try tag.replaceWith(centerElement)
-                }
+                try tag.replaceWith(centerElement)
             }
         }
         
+        // remove scripts
         let scripts = try document.getElementsByTag(tagName)
         for script in scripts {
             if let linkString = try? script.attr(attributeName),
@@ -148,35 +182,6 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         return centerElement
     }
     
-    private func replacePathForVideo(with link: OfflineDownloaderLink) throws {
-        guard link.isDownloaded,
-              let tagName = link.tag,
-              let attributeName = link.attribute
-        else { return }
-        
-        let tags = try document.getElementsByTag(tagName)
-        for tag in tags {
-            if let linkString = try? tag.attr(attributeName),
-                !linkString.isEmpty,
-                linkString.fixLink(with: baseURL) == link.link {
-                
-                if let centerElement = try videoElement(from: link) {
-                    for container in config.mediaContainerClasses {
-                        if let parent = parent(
-                            for: container,
-                            from: tag
-                        ) {
-                            try parent.replaceWith(centerElement)
-                            return
-                        }
-                    }
-                    
-                    try tag.replaceWith(centerElement)
-                }
-            }
-        }
-    }
-    
     private func audioElement(from link: OfflineDownloaderVideoLink) throws -> Element? {
         guard let relativePath = link.extractedLink.downloadedRelativePath else { return nil }
         let videoLink = link.videoLink
@@ -203,34 +208,6 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         """
         try centerElement.append(htmlToInsert)
         return centerElement
-    }
-    
-    private func replacePathForAudio(with link: OfflineDownloaderLink) throws {
-        guard link.isDownloaded,
-              let tagName = link.tag,
-              let attributeName = link.attribute
-        else { return }
-
-        let tags = try document.getElementsByTag(tagName)
-        for tag in tags {
-            if let linkString = try? tag.attr(attributeName),
-                !linkString.isEmpty,
-                linkString.fixLink(with: baseURL) == link.link {
-                if let centerElement = try audioElement(from: link) {
-                    for container in config.mediaContainerClasses {
-                        if let parent = parent(
-                            for: container,
-                            from: tag
-                        ) {
-                            try parent.replaceWith(centerElement)
-                            return
-                        }
-                    }
-                    
-                    try tag.replaceWith(centerElement)
-                }
-            }
-        }
     }
     
     func finalHTML() throws -> String {
