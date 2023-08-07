@@ -31,7 +31,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     func setRelativePath(for link: OfflineDownloaderLink) throws {
         guard link.isDownloaded else { return }
 
-        if link.videoLink != nil {
+        if link.videoLinks != nil {
             if link.isAudio {
                 try replacePathForAudio(with: link)
             } else if link.isVideo {
@@ -46,7 +46,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
     }
     private func replaceVideoPathForIframe(with link: OfflineDownloaderLink) throws {
-        guard link.isDownloaded, let videoLink = link.videoLink else { return }
+        guard link.isDownloaded, let videoLinks = link.videoLinks else { return }
         if videoLink.videoLink.isAudio {
             try replacePathForAudio(with: link)
         } else  {
@@ -114,19 +114,19 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
     }
     
-    private func videoElement(from link: OfflineDownloaderLink) throws -> Element? {
-        guard link.isDownloaded,
-              let relativePath = link.downloadedRelativePath
-        else { return nil }
+    private func videoElement(from link: OfflineDownloaderVideoLink) throws -> Element? {
+        guard let relativePath = link.extractedLink.downloadedRelativePath else { return nil }
+        let videoLink = link.videoLink
         
         let centerElement = Element(Tag("center"), "")
         var posterAttribute = ""
-        if let posterLink = link.videoLink?.posterLink?.downloadedRelativePath {
+        if let posterLink = link.posterLink?.downloadedRelativePath {
             posterAttribute = "poster=\"\(posterLink)\""
         }
 
         var trackTags = ""
-        if let tracks = link.videoLink?.videoLink.tracks, !tracks.isEmpty {
+        let tracks = videoLink.tracks
+        if !tracks.isEmpty {
             for track in tracks {
                 if let base64String = track.contents.data(using: .utf8)?.base64EncodedString() {
                     let trackTag = """
@@ -177,17 +177,15 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
     }
     
-    private func audioElement(from link: OfflineDownloaderLink) throws -> Element? {
-        guard link.isDownloaded,
-              let relativePath = link.downloadedRelativePath,
-              let videoLink = link.videoLink
-        else { return nil }
+    private func audioElement(from link: OfflineDownloaderVideoLink) throws -> Element? {
+        guard let relativePath = link.extractedLink.downloadedRelativePath else { return nil }
+        let videoLink = link.videoLink
         
         var color = config.defaultMediaBackground
-        if let colorString = videoLink.videoLink.colorString {
+        if let colorString = videoLink.colorString {
             color = colorString
         }
-        let name = videoLink.videoLink.name
+        let name = videoLink.name
         
         let centerElement = Element(Tag("center"), "")
         let htmlToInsert: String = """
@@ -258,7 +256,8 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                         link: link.fixLink(with: baseURL),
                         tag: tag.tagName(),
                         attribute: attr,
-                        typeAttribute: try? tag.attr("type")
+                        typeAttribute: try? tag.attr("type"),
+                        tagHTML: try? tag.outerHtml()
                     )
                     webLink.extractedLink = extractedLink(for: webLink.link)
                     
@@ -281,7 +280,8 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                         link: link.fixLink(with: baseURL),
                         tag: tag.tagName(),
                         attribute: attr,
-                        typeAttribute: try? tag.attr("type")
+                        typeAttribute: try? tag.attr("type"),
+                        tagHTML: try? tag.html()
                     )
                     webLink.extractedLink = extractedLink(for: webLink.link)
                     links.append(webLink)

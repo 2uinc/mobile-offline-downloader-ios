@@ -13,11 +13,15 @@ class OfflineVideoDownloader {
     
     func download() async throws {
         guard !link.isDownloaded else { return }
-        if link.videoLink == nil {
+        if link.videoLinks == nil {
             try await extractVideoLink(for: link)
         }
         
-        let links = [link, link.videoLink?.posterLink].compactMap{$0}
+        guard let videoLinks = link.videoLinks else { return }
+        
+        let links = videoLinks
+            .flatMap { [$0.posterLink, $0.extractedLink] }
+            .compactMap{ $0 }
         progress.totalUnitCount = Int64(links.count)
         for link in links {
             try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: cookieString)
@@ -25,15 +29,15 @@ class OfflineVideoDownloader {
     }
 
     private func extractVideoLink(for link: OfflineDownloaderLink) async throws {
-        let videoLinkExtractor = VideoLinkExtractor(link: link.link)
-        let videoLink = try await videoLinkExtractor.getVideoLink()
-        link.extractedLink = videoLink.url
-        
-        if let posterLink = videoLink.posterLink {
-            link.videoLink = OfflineDownloaderVideoLink(posterLink: OfflineDownloaderLink(link: posterLink), videoLink: videoLink)
-        } else {
-            link.videoLink = OfflineDownloaderVideoLink(posterLink: nil, videoLink: videoLink)
-        }
-
+        let videoLinkExtractor = VideoLinkExtractor(link: link, cookieString: cookieString)
+        let videoLinks = try await videoLinkExtractor.getVideoLinks()
+        link.videoLinks = videoLinks.map({ videoLink in
+            let extractedLink = OfflineDownloaderLink(link: videoLink.url)
+            var posterLink: OfflineDownloaderLink?
+            if let url = videoLink.posterLink {
+                posterLink = OfflineDownloaderLink(link: url)
+            }
+            return OfflineDownloaderVideoLink(extractedLink: extractedLink, posterLink: posterLink, videoLink: videoLink)
+        })
     }
 }

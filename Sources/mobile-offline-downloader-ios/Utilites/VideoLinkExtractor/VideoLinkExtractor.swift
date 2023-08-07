@@ -1,3 +1,4 @@
+import SwiftSoup
 import Foundation
 
 struct VideoLink: Codable {
@@ -16,12 +17,16 @@ struct VideoTrack: Codable {
 }
 
 struct VideoLinkExtractor {
-    var link: String
+    var link: OfflineDownloaderLink
     var baseHost: String = ""
     var cookieString: String?
+    
+    private var linkString: String {
+        link.link
+    }
 
-    func getVideoLink() async throws -> VideoLink {
-        let type = VideoTypeDetector(link: link).type
+    func getVideoLinks() async throws -> [VideoLink] {
+        let type = VideoTypeDetector(link: linkString).type
         switch type {
         case .wistia:
             return try await getWistiaLink()
@@ -32,9 +37,11 @@ struct VideoLinkExtractor {
         case .wistiaJSON:
             return try await getWistiaJsonLink()
         case .youtube, .eco:
-            throw VideoLinkExtractorError.unsupportedType(src: link, type: type)
+            throw VideoLinkExtractorError.unsupportedType(src: linkString, type: type)
+        case .frost:
+            return try await getFrostLink()
         default:
-            throw VideoLinkExtractorError.unknownType(src: link)
+            throw VideoLinkExtractorError.unknownType(src: linkString)
         }
     }
 
@@ -70,14 +77,14 @@ struct VideoLinkExtractor {
     private func decode<T: Decodable>(json: String, with type: T.Type) throws -> T {
         guard let data = json.data(using: .utf8)
         else {
-            throw VideoLinkExtractorError.badJSON(json: json, src: link)
+            throw VideoLinkExtractorError.badJSON(json: json, src: linkString)
         }
 
         let decoder = JSONDecoder()
         do {
             return try decoder.decode(type, from: data)
         } catch {
-            throw VideoLinkExtractorError.decodeFailed(src: link, error: error)
+            throw VideoLinkExtractorError.decodeFailed(src: linkString, error: error)
         }
     }
 
@@ -99,19 +106,19 @@ struct VideoLinkExtractor {
                     jsonErrors.append(error)
                 }
             }
-            throw VideoLinkExtractorError.cantParseJsons(src: link, errors: jsonErrors)
+            throw VideoLinkExtractorError.cantParseJsons(src: linkString, errors: jsonErrors)
         } else {
             if !isEmbed,
                let embedUrl = content.slice(fromStr: "embedUrl\":\"", toStr: "\"") {
                 let contents = try await getContents(for: embedUrl)
                 return try await getVimeoVideo(from: contents, isEmbed: true)
             }
-            throw VideoLinkExtractorError.noJSON(src: link)
+            throw VideoLinkExtractorError.noJSON(src: linkString)
         }
     }
 
-    private func getVimeoLink() async throws -> VideoLink {
-        let link = link.fixLink(with: baseHost)
+    private func getVimeoLink() async throws -> [VideoLink] {
+        let link = linkString.fixLink(with: baseHost)
 
         let content = try await getContents(for: link)
         let video = try await getVimeoVideo(from: content)
@@ -129,20 +136,20 @@ struct VideoLinkExtractor {
                     }
                 }
                 do {
-                    let contents = try await getContents(for: url)
+                    let contents = try await getContents(for: subtitleUrl)
                     tracks.append(VideoTrack(name: track.label, language: track.lang, contents: contents))
                 } catch {
                     // ignore error
                 }
             }
 
-            return VideoLink(
+            return [VideoLink(
                 name: "",
                 url: url,
                 isAudio: false,
                 posterLink: video.video.thumbs["base"],
                 tracks: tracks
-            )
+            )]
         } else {
             throw VideoLinkExtractorError.noCompatibleVideo(src: link)
         }
@@ -265,30 +272,30 @@ struct VideoLinkExtractor {
                     jsonErrors.append(error)
                 }
             }
-            throw VideoLinkExtractorError.cantParseJsons(src: link, errors: jsonErrors)
+            throw VideoLinkExtractorError.cantParseJsons(src: linkString, errors: jsonErrors)
         } else {
-            throw VideoLinkExtractorError.noJSON(src: link)
+            throw VideoLinkExtractorError.noJSON(src: linkString)
         }
     }
     
-    private func getWistiaJsonLink() async throws -> VideoLink {
-        let content: String = try await getContents(for: link)
+    private func getWistiaJsonLink() async throws -> [VideoLink] {
+        let content: String = try await getContents(for: linkString)
         if let json = content.slice(fromStr: "= {", toStr: "};") {
             let jsonBody = "{\(json)}"
             let wistia = try decode(json: jsonBody, with: WistiaJSON.self)
             return try await getWistiaLink(from: wistia.media)
         }
-        throw VideoLinkExtractorError.noJSON(src: link)
+        throw VideoLinkExtractorError.noJSON(src: linkString)
     }
 
-    private func getWistiaLink() async throws -> VideoLink {
-        let link = link.fixLink(with: baseHost)
+    private func getWistiaLink() async throws -> [VideoLink] {
+        let link = linkString.fixLink(with: baseHost)
         let content = try await getContents(for: link)
         let wistia = try getWistiaVideo(from: content)
         return try await getWistiaLink(from: wistia)
     }
 
-    private func getWistiaLink(from wistia: WistiaVideo) async throws -> VideoLink {
+    private func getWistiaLink(from wistia: WistiaVideo) async throws -> [VideoLink] {
         var tracks: [VideoTrack] = []
         do {
             tracks = try await getWistiaSubtitles(id: wistia.hashedId)
@@ -296,14 +303,14 @@ struct VideoLinkExtractor {
             // ignore error
         }
         if let link = getLink(from: wistia, with: tracks) {
-            return link
+            return [link]
         } else {
-            throw VideoLinkExtractorError.noCompatibleVideo(src: link)
+            throw VideoLinkExtractorError.noCompatibleVideo(src: linkString)
         }
     }
     
-    private func getHapyakLink() async throws -> VideoLink {
-        let link = link.fixLink(with: baseHost)
+    private func getHapyakLink() async throws -> [VideoLink] {
+        let link = linkString.fixLink(with: baseHost)
         guard let url = URL(string: link) else { throw VideoLinkExtractorError.badSrc(src: link) }
         let storage = try await getDynamicStorage(from: url)
         if
@@ -326,23 +333,59 @@ struct VideoLinkExtractor {
                 let thumbnailURL = content.slice(fromStr: "thumbnailUrl\":\"", toStr: "\"")
                 let video = try decode(json: jsonBody, with: HapyakVideo.self)
                 if let link = await getLink(from: video, thumbnailURL: thumbnailURL) {
-                    return link
+                    return [link]
                 } else {
                     throw VideoLinkExtractorError.noCompatibleVideo(src: link)
                 }
             } else if let iframeLink = storage.links.first(where: { $0.isIframe && $0.link.contains(sourceId) }) {
-                let extractor = VideoLinkExtractor(link: iframeLink.link)
-                return try await extractor.getVideoLink()
+                let extractor = VideoLinkExtractor(link: iframeLink)
+                return try await extractor.getVideoLinks()
             } else if let embedUrl = content.slice(fromStr: "embedUrl\":\"", toStr: "\"") {
                 let link = embedUrl.fixLink(with: baseHost)
-                let extractor = VideoLinkExtractor(link: link)
-                return try await extractor.getVideoLink()
+                let extractor = VideoLinkExtractor(link: OfflineDownloaderLink(link: link))
+                return try await extractor.getVideoLinks()
             } else {
                 throw VideoLinkExtractorError.noJSON(src: link)
             }
         } else {
             throw VideoLinkExtractorError.noJSON(src: link)
         }
+    }
+    
+    private func getFrostLink() async throws -> [VideoLink] {
+        if let html = link.tagHTML {
+            let document = try SwiftSoup.parse(html)
+            if let dataPath = try document.getElementsByAttribute("data-path").first()?.attr("data-path") {
+                var videoLinks: [VideoLink] = []
+                let contents = try await getContents(for: dataPath)
+                let json = contents.replacingOccurrences(of: "var widget_data = ", with: "")
+                let frost = try decode(json: json, with: Frost.self)
+                let options = frost.widgetData.options
+                for option in options {
+                    let data = option.imgDetails
+                    let movieURL = data.mediaPath
+                    var tracks: [VideoTrack] = []
+                    if let vttURL = data.vttSrc {
+                        let vttContents = try await getContents(for: vttURL)
+                        tracks.append(VideoTrack(name: "", language: "", contents: vttContents))
+                    }
+                    let isAudio = option.imgDetails.mediaType != "video"
+                    let thumbnail = data.thumbnailUrl
+                    
+                    
+                    let videoLink = VideoLink(
+                        name: option.labelName,
+                        url: movieURL,
+                        isAudio: isAudio,
+                        posterLink: thumbnail,
+                        tracks: tracks
+                    )
+                    videoLinks.append(videoLink)
+                }
+                return videoLinks
+            }
+        }
+        throw VideoLinkExtractorError.noJSON(src: linkString)
     }
 }
 

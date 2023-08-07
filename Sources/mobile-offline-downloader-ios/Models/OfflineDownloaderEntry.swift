@@ -4,7 +4,6 @@ public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
-    public var cookieString: String?
     var updatedTimestamp: Double
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
     var errors: [Error] = []
