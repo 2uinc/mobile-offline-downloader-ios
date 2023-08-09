@@ -38,12 +38,12 @@ class OfflineEntryDownloader: NSObject {
     }
 
     func start() {
+        status = .preparing
         task = Task(priority: .background) {
             do {
                 entry.updateTimestamp()
                 if entry.parts.isEmpty {
                     // skip if data prepared already
-                    status = .preparing
                     try await entry.saveToDB()
                     try await prepare()
                 }
