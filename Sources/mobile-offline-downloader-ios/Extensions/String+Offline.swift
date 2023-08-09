@@ -13,9 +13,10 @@ extension String {
 
     func appendPath( _ path: String) -> String {
         var rootComponents = components(separatedBy: "/")
+        let prefix = rootComponents.first?.isEmpty == true ? "/" : ""
         let pathComponents = path.components(separatedBy: "/")
         rootComponents.append(contentsOf: pathComponents)
-        return rootComponents
+        return prefix + rootComponents
             .filter { !$0.isEmpty }
             .joined(separator: "/")
     }
