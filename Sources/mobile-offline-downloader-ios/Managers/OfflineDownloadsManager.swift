@@ -432,4 +432,14 @@ public class OfflineDownloadsManager {
             $0.entry.dataModel.type == entry.dataModel.type
         }
     }
+    
+    // MARK: All queue functions
+    
+    public func pauseAllActive() {
+        // method to pause all active entries
+    }
+    
+    public func resumeAllActive() {
+        // method to resume all active entries
+    }
 }
