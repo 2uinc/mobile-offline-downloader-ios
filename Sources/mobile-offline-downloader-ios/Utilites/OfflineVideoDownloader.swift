@@ -17,6 +17,9 @@ class OfflineVideoDownloader {
             do {
                 try await extractVideoLink(for: link)
             } catch {
+                if error.isCancelled {
+                    throw error
+                }
                 throw OfflineVideoDownloaderError.cantExtractLink(link: link.extractedLink ?? link.link, error: error)
             }
         }
@@ -31,6 +34,9 @@ class OfflineVideoDownloader {
             do {
                 try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: cookieString)
             } catch {
+                if error.isCancelled {
+                    throw error
+                }
                 let baseLink = self.link.extractedLink ?? self.link.link
                 let linkString = link.extractedLink ?? link.link
                 throw OfflineVideoDownloaderError.cantDownloadLink(link: linkString, baseLink: baseLink, error: error)

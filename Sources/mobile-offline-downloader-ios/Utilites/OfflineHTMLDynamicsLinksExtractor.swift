@@ -65,6 +65,9 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             data = try await fetchDynamicHTML()
         } catch {
+            if error.isCancelled {
+                throw error
+            }
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData(error:error)
         }
         if let data = data {

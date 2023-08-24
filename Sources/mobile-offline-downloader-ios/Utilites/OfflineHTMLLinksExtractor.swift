@@ -29,6 +29,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func setHtml(html: String, for link: OfflineDownloaderLink) throws {
+        if Task.isCancelled { throw URLError(.cancelled) }
         let containerElement = Element(Tag("div"), "")
         try containerElement.append(html)
         
@@ -69,6 +70,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func setRelativePath(for link: OfflineDownloaderLink) throws {
+        if Task.isCancelled { throw URLError(.cancelled) }
         guard link.isDownloaded else { return }
 
         do {
@@ -269,6 +271,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func finalHTML() throws -> String {
+        if Task.isCancelled { throw URLError(.cancelled) }
         do {
             let metas = try document.getElementsByAttributeValue("name", "viewport")
             if metas.isEmpty() {

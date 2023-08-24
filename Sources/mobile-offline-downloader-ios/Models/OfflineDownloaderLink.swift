@@ -141,6 +141,4 @@ extension OfflineDownloaderLink: Equatable {
         lhs.attribute == rhs.attribute && lhs.extractedLink == rhs.extractedLink &&
         lhs.downloadedRelativePath == rhs.downloadedRelativePath
     }
-    
-    
 }

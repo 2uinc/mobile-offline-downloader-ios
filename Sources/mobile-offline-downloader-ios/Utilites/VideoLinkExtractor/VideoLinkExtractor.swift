@@ -60,6 +60,7 @@ struct VideoLinkExtractor {
     }
 
     private func getDynamicStorage(from url: URL) async throws -> (links:[OfflineDownloaderLink], html: String?) {
+        if Task.isCancelled { throw URLError(.cancelled) }
         do {
             let extractor = await OfflineHTMLDynamicsLinksExtractor(url: url, linksHandler: nil)
             try await extractor.fetch()

@@ -42,6 +42,9 @@ class OfflineCSSLinkDownloader {
             
             progress.completedUnitCount = 2
         } catch {
+            if error.isCancelled {
+                throw error
+            }
             throw OfflineCSSLinkDownloaderError.cantDownloadCSS(src: link.extractedLink ?? link.link,error: error)
         }
     }

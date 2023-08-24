@@ -22,6 +22,9 @@ public class OfflineLinkDownloader {
             let newURL = try await download(with: request, toFolder: folder)
             return newURL
         } catch {
+            if error.isCancelled {
+                throw error
+            }
             throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
         }
     }
@@ -40,6 +43,9 @@ public class OfflineLinkDownloader {
             let (data, _) = try await data(with: request)
             return data
         } catch {
+            if error.isCancelled {
+                throw error
+            }
             throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
         }
     }

@@ -41,6 +41,7 @@ class OfflineEntryDownloader: NSObject {
 
     func start() {
         status = .preparing
+        entry.errors.removeAll()
         task = Task(priority: .background) {
             do {
                 entry.updateTimestamp()
@@ -72,8 +73,7 @@ class OfflineEntryDownloader: NSObject {
                 }
             } catch {
                 if !error.isCancelled {
-                    entry.errors.append(error)
-                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
+                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error)")
                     status = .failed
                     entry.saveToDB(completion: {_ in})
                 }

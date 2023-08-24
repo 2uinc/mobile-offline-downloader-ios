@@ -49,6 +49,9 @@ class OfflineEntryPartDownloader {
                 try html.write(toFile: path, atomically: true, encoding: .utf8)
                 progress.completedUnitCount = progress.totalUnitCount // completed all units
             } catch {
+                if error.isCancelled {
+                    throw error
+                }
                 throw OfflineEntryPartDownloaderError.cantDownloadHTMLPart(error: error)
             }
         case let.url(url):
@@ -59,6 +62,9 @@ class OfflineEntryPartDownloader {
                 part.append(links: [link])
                 try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
             } catch {
+                if error.isCancelled {
+                    throw error
+                }
                 throw OfflineEntryPartDownloaderError.cantDownloadLinkPart(error: error)
             }
         }
