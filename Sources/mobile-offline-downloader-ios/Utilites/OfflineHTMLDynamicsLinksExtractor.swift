@@ -65,12 +65,12 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             data = try await fetchDynamicHTML()
         } catch {
-            throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData
+            throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData(error:error)
         }
         if let data = data {
             latestData = data
         } else {
-            throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData
+            throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData(error: nil)
         }
     }
 
@@ -143,7 +143,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
 
 extension OfflineHTMLDynamicsLinksExtractor {
     enum OfflineHTMLDynamicsLinksExtractorError: Error, LocalizedError {
-        case cantGetWebviewData
+        case cantGetWebviewData(error: Error?)
         case cantGetStorage(error: Error)
         case cantLoadHTML(error: Error)
 
@@ -151,8 +151,12 @@ extension OfflineHTMLDynamicsLinksExtractor {
             switch self {
             case .cantGetStorage(let error):
                 return "Can't parse html. Error: \(error)"
-            case .cantGetWebviewData:
-                return "Can't prepare download data"
+            case .cantGetWebviewData(let error):
+                if let error = error {
+                    return "Can't prepare download data. Error: \(error)"
+                } else {
+                    return "Can't prepare download data."
+                }
             case .cantLoadHTML(let error):
                 return "Can't load html. Error: \(error)"
             }
