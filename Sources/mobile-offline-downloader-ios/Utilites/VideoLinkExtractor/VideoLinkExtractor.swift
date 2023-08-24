@@ -338,12 +338,20 @@ struct VideoLinkExtractor {
                     throw VideoLinkExtractorError.noCompatibleVideo(src: link)
                 }
             } else if let iframeLink = storage.links.first(where: { $0.isIframe && $0.link.contains(sourceId) }) {
-                let extractor = VideoLinkExtractor(link: iframeLink)
-                return try await extractor.getVideoLinks()
+                do {
+                    let extractor = VideoLinkExtractor(link: iframeLink)
+                    return try await extractor.getVideoLinks()
+                } catch {
+                    throw VideoLinkExtractorError.cantGetVideo(src: link, error: error)
+                }
             } else if let embedUrl = content.slice(fromStr: "embedUrl\":\"", toStr: "\"") {
-                let link = embedUrl.fixLink(with: baseHost)
-                let extractor = VideoLinkExtractor(link: OfflineDownloaderLink(link: link))
-                return try await extractor.getVideoLinks()
+                do {
+                    let link = embedUrl.fixLink(with: baseHost)
+                    let extractor = VideoLinkExtractor(link: OfflineDownloaderLink(link: link))
+                    return try await extractor.getVideoLinks()
+                } catch {
+                    throw VideoLinkExtractorError.cantGetVideo(src: link, error: error)
+                }
             } else {
                 throw VideoLinkExtractorError.noJSON(src: link)
             }
@@ -354,35 +362,39 @@ struct VideoLinkExtractor {
     
     private func getFrostLink() async throws -> [VideoLink] {
         if let html = link.tagHTML {
-            let document = try SwiftSoup.parse(html)
-            if let dataPath = try document.getElementsByAttribute("data-path").first()?.attr("data-path") {
-                var videoLinks: [VideoLink] = []
-                let contents = try await getContents(for: dataPath)
-                let json = contents.replacingOccurrences(of: "var widget_data = ", with: "")
-                let frost = try decode(json: json, with: Frost.self)
-                let options = frost.widgetData.options
-                for option in options {
-                    let data = option.imgDetails
-                    let movieURL = data.mediaPath
-                    var tracks: [VideoTrack] = []
-                    if let vttURL = data.vttSrc {
-                        let vttContents = try await getContents(for: vttURL)
-                        tracks.append(VideoTrack(name: "", language: "", contents: vttContents))
+            do {
+                let document = try SwiftSoup.parse(html)
+                if let dataPath = try document.getElementsByAttribute("data-path").first()?.attr("data-path") {
+                    var videoLinks: [VideoLink] = []
+                    let contents = try await getContents(for: dataPath)
+                    let json = contents.replacingOccurrences(of: "var widget_data = ", with: "")
+                    let frost = try decode(json: json, with: Frost.self)
+                    let options = frost.widgetData.options
+                    for option in options {
+                        let data = option.imgDetails
+                        let movieURL = data.mediaPath
+                        var tracks: [VideoTrack] = []
+                        if let vttURL = data.vttSrc {
+                            let vttContents = try await getContents(for: vttURL)
+                            tracks.append(VideoTrack(name: "", language: "", contents: vttContents))
+                        }
+                        let isAudio = option.imgDetails.mediaType != "video"
+                        let thumbnail = data.thumbnailUrl
+                        
+                        
+                        let videoLink = VideoLink(
+                            name: option.labelName,
+                            url: movieURL,
+                            isAudio: isAudio,
+                            posterLink: thumbnail,
+                            tracks: tracks
+                        )
+                        videoLinks.append(videoLink)
                     }
-                    let isAudio = option.imgDetails.mediaType != "video"
-                    let thumbnail = data.thumbnailUrl
-                    
-                    
-                    let videoLink = VideoLink(
-                        name: option.labelName,
-                        url: movieURL,
-                        isAudio: isAudio,
-                        posterLink: thumbnail,
-                        tracks: tracks
-                    )
-                    videoLinks.append(videoLink)
+                    return videoLinks
                 }
-                return videoLinks
+            } catch {
+                throw VideoLinkExtractorError.cantGetVideo(src: html, error: error)
             }
         }
         throw VideoLinkExtractorError.noJSON(src: linkString)
@@ -403,6 +415,7 @@ extension VideoLinkExtractor {
         case cantGetDynamicHTML(src: String, error: Error)
         case cantParseJsons(src: String, errors: [Error])
         case cantGetWistiaSubtitles(src: String, error: Error?)
+        case cantGetVideo(src: String, error: Error)
 
         var errorDescription: String? {
             switch self {
@@ -428,6 +441,8 @@ extension VideoLinkExtractor {
                 return "Can't get dynamic html for src: \(src). Error: \(error)"
             case let .cantParseJsons(src, errors):
                 return "Can't parse json for src: \(src). Errors: \(errors)."
+            case let .cantGetVideo(src, error):
+                return "Can't get video for src: \(src). Error: \(error)."
             case let .cantGetWistiaSubtitles(src, error):
                 if let error = error {
                     return "Can't get wistia subtitles for src: \(src). Error: \(error)."

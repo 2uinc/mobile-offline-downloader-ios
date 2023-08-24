@@ -61,7 +61,13 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
     
     public func fetch() async throws {
         if Task.isCancelled { throw URLError(.cancelled) }
-        if let data = try await fetchDynamicHTML() {
+        var data: OfflineBackgroundWebview.OfflineBackgroundWebviewData?
+        do {
+            data = try await fetchDynamicHTML()
+        } catch {
+            throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData
+        }
+        if let data = data {
             latestData = data
         } else {
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData

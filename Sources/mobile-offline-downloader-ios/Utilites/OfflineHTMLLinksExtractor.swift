@@ -28,17 +28,61 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
     }
     
+    func setHtml(html: String, for link: OfflineDownloaderLink) throws {
+        let containerElement = Element(Tag("div"), "")
+        try containerElement.append(html)
+        
+        guard let tagName = link.tag,
+              let attributeName = link.attribute
+        else { return }
+
+        do {
+            let tags = try document.getElementsByTag(tagName)
+            for tag in tags {
+                if let linkString = try? tag.attr(attributeName),
+                   !linkString.isEmpty,
+                   linkString.fixLink(with: baseURL) == link.link {
+                    
+                    var replacedFromParent: Bool = false
+                    for container in config.mediaContainerClasses {
+                        if let parent = parent(
+                            for: container,
+                            from: tag
+                        ) {
+                            try parent.replaceWith(containerElement)
+                            replacedFromParent = true
+                        }
+                    }
+                    
+                    if !replacedFromParent {
+                        if link.isSource {
+                            try tag.parent()?.replaceWith(containerElement)
+                        } else {
+                            try tag.replaceWith(containerElement)
+                        }
+                    }
+                }
+            }
+        } catch {
+            throw OfflineHTMLLinksExtractorError.replaceError(error: error)
+        }
+    }
+    
     func setRelativePath(for link: OfflineDownloaderLink) throws {
         guard link.isDownloaded else { return }
 
-        if let elements = try mediaElements(for: link) {
-            if link.isScript {
-                try replaceVideoPathForScript(with: link, and: elements)
+        do {
+            if let elements = try mediaElements(for: link) {
+                if link.isScript {
+                    try replaceVideoPathForScript(with: link, and: elements)
+                } else {
+                    try replace(link: link, with: elements)
+                }
             } else {
-                try replace(link: link, with: elements)
+                try replacePath(for: link)
             }
-        } else {
-            try replacePath(for: link)
+        } catch {
+            throw OfflineHTMLLinksExtractorError.replaceError(error: error)
         }
     }
     
@@ -72,17 +116,24 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
                !linkString.isEmpty,
                linkString.fixLink(with: baseURL) == link.link {
                 let element = try container(for: elements)
+                var replacedFromParent: Bool = false
                 for container in config.mediaContainerClasses {
                     if let parent = parent(
                         for: container,
                         from: tag
                     ) {
                         try parent.replaceWith(element)
-                        return
+                        replacedFromParent = true
                     }
                 }
                 
-                try tag.replaceWith(element)
+                if !replacedFromParent {
+                    if link.isSource {
+                        try tag.parent()?.replaceWith(element)
+                    } else {
+                        try tag.replaceWith(element)
+                    }
+                }
             }
         }
     }
@@ -106,17 +157,24 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
             let tags = try document.getElementsByClass("wistia_async_\(id)")
             for tag in tags {
                 let centerElement = try container(for: elements)
+                var replacedFromParent: Bool = false
                 for container in config.mediaContainerClasses {
                     if let parent = parent(
                         for: container,
                         from: tag
                     ) {
                         try parent.replaceWith(centerElement)
-                        return
+                        replacedFromParent = true
                     }
                 }
                 
-                try tag.replaceWith(centerElement)
+                if !replacedFromParent {
+                    if link.isSource {
+                        try tag.parent()?.replaceWith(centerElement)
+                    } else {
+                        try tag.replaceWith(centerElement)
+                    }
+                }
             }
         }
         
@@ -173,7 +231,7 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
         }
         
         let htmlToInsert: String = """
-            <video preload="auto" controls="true" \(posterAttribute) >
+            <video width="100%" preload="auto" controls="true" \(posterAttribute) >
                 <source src=\(relativePath) type="video/mp4">
                 \(trackTags)
             </video>
@@ -211,14 +269,18 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
     }
     
     func finalHTML() throws -> String {
-        let metas = try document.getElementsByAttributeValue("name", "viewport")
-        if metas.isEmpty() {
-            let meta = Element(Tag("meta"), "")
-            try meta.attr("name", "viewport")
-            try meta.attr("content", "width=device-width, initial-scale=1")
-            try document.head()?.addChildren(meta)
+        do {
+            let metas = try document.getElementsByAttributeValue("name", "viewport")
+            if metas.isEmpty() {
+                let meta = Element(Tag("meta"), "")
+                try meta.attr("name", "viewport")
+                try meta.attr("content", "width=device-width, initial-scale=1")
+                try document.head()?.addChildren(meta)
+            }
+            return try document.html()
+        } catch {
+            throw OfflineHTMLLinksExtractorError.cantGetHtml(error: error)
         }
-        return try document.html()
     }
 
     private func linksForTag(_ name: String) throws -> [OfflineDownloaderLink] {
@@ -302,11 +364,17 @@ struct OfflineHTMLLinksExtractor: OfflineLinksExtractorProtocol, OfflineHTMLLink
 extension OfflineHTMLLinksExtractor {
     enum OfflineHTMLLinksExtractorError: Error, LocalizedError {
         case soupError(error: Error)
+        case replaceError(error: Error)
+        case cantGetHtml(error: Error)
 
         var errorDescription: String? {
             switch self {
             case .soupError(error: let error):
-                return "HTMLLinksExtractor got an error: \(error)"
+                return "Error when parsing html: \(error)"
+            case .replaceError(error: let error):
+                return "Error when replacing html element: \(error)"
+            case .cantGetHtml(error: let error):
+                return "Error when gain final html: \(error)"
             }
         }
     }
