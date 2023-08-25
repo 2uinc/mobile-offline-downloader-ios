@@ -1,6 +1,6 @@
 import Foundation
 
-extension Error {
+public extension Error {
     var isOfflineCancel: Bool {
         return isCancelled || isNotConnected
     }

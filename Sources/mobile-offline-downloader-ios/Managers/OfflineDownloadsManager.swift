@@ -31,7 +31,11 @@ public class OfflineDownloadsManager {
     public var isLoading: Bool = false
     public var activeEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .active || $0.status == .preparing }
+            .filter {
+                $0.status == .active ||
+                $0.status == .preparing ||
+                ($0.status == .paused && $0.isForcePaused)
+            }
             .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
     }
 
@@ -431,12 +435,19 @@ public class OfflineDownloadsManager {
     }
     
     // MARK: All queue functions
-    
     public func pauseAllActive() {
-        // method to pause all active entries
+        activeEntries.forEach {
+            $0.isForcePaused = true
+            pause(entry: $0)
+        }
     }
     
     public func resumeAllActive() {
-        // method to resume all active entries
+        pausedEntries.forEach {
+            if $0.isForcePaused {
+                $0.isForcePaused = false
+                start(entry: $0)
+            }
+        }
     }
 }
