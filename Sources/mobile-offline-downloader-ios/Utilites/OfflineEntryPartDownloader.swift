@@ -1,80 +1,121 @@
 import Foundation
 
 class OfflineEntryPartDownloader {
-    var part: OfflineDownloaderEntryPart
-    var rootPath: String
-    var htmlIndexName: String
-    var shouldCacheCSS: Bool
-    var progress: Progress = Progress()
-    var linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+    let part: OfflineDownloaderEntryPart
+    let rootPath: String
+    let htmlIndexName: String
+    let shouldCacheCSS: Bool
+    let progress: Progress = Progress()
+    let linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+    let errorHandler: OfflineErrorHandler
     
     init(part: OfflineDownloaderEntryPart,
          rootPath: String,
          htmlIndexName: String,
          shouldCacheCSS: Bool = false,
-         linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?
+         linksHandler: OfflineDownloaderConfig.LinksHandlerBlock?,
+         errorHandler: OfflineErrorHandler
     ) {
         self.part = part
         self.rootPath = rootPath
         self.htmlIndexName = htmlIndexName
         self.shouldCacheCSS = shouldCacheCSS
         self.linksHandler = linksHandler
+        self.errorHandler = errorHandler
     }
     
     func download() async throws {
         if Task.isCancelled { throw URLError(.cancelled) }
         switch part.value {
         case let .html(html, baseURL):
-            let extractor = try OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "")
-            try FileManager.default.createDirectoryAt(path: rootPath)
-            if Task.isCancelled { throw URLError(.cancelled) }
-            if part.links.isEmpty {
-                let links = try await extractor.links()
-                part.append(links: links)
+            do {
+                let extractor = try OfflineHTMLLinksExtractor(html: html, baseURL: baseURL ?? "")
+                try FileManager.default.createDirectoryAt(path: rootPath)
+                if Task.isCancelled { throw URLError(.cancelled) }
+                if part.links.isEmpty {
+                    let links = try await extractor.links()
+                    part.append(links: links)
+                }
+                
+                if part.links.isEmpty {
+                    progress.totalUnitCount = 1
+                } else {
+                    progress.totalUnitCount = Int64(part.links.count)
+                }
+                
+                try await downloadLinks(with: extractor)
+                let html = try extractor.finalHTML()
+                let path = rootPath.appendPath(htmlIndexName)
+                try html.write(toFile: path, atomically: true, encoding: .utf8)
+                progress.completedUnitCount = progress.totalUnitCount // completed all units
+            } catch {
+                if error.isCancelled {
+                    throw error
+                }
+                throw OfflineEntryPartDownloaderError.cantDownloadHTMLPart(error: error)
             }
-            
-            if part.links.isEmpty {
-                progress.totalUnitCount = 1
-            } else {
-                progress.totalUnitCount = Int64(part.links.count)
-            }
-
-            try await downloadLinks(with: extractor)
-            let html = try extractor.finalHTML()
-            let path = rootPath.appendPath(htmlIndexName)
-            try html.write(toFile: path, atomically: true, encoding: .utf8)
-            progress.completedUnitCount = progress.totalUnitCount // completed all units
         case let.url(url):
-            progress.totalUnitCount = 1
-            let link = OfflineDownloaderLink(link: url)
-            link.extractedLink = linksHandler?(url)
-            part.append(links: [link])
-            try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
+            do {
+                progress.totalUnitCount = 1
+                let link = OfflineDownloaderLink(link: url)
+                link.extractedLink = linksHandler?(url)
+                part.append(links: [link])
+                try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
+            } catch {
+                if error.isCancelled {
+                    throw error
+                }
+                throw OfflineEntryPartDownloaderError.cantDownloadLinkPart(error: error)
+            }
         }
     }
     
     private func downloadLinks(with extractor: OfflineHTMLLinksExtractor) async throws {
         for link in part.links {
+            print("!!! start download link: \(link.link)")
+            var shouldSetRelativePath: Bool = true
             if Task.isCancelled { throw URLError(.cancelled) }
             if !link.isDownloaded {
                 if shouldUseVideoDownloader(for: link) {
                     let videoDownloader = OfflineVideoDownloader(link: link, rootPath: rootPath)
                     videoDownloader.cookieString = part.cookieString
                     progress.addChild(videoDownloader.progress, withPendingUnitCount: 1)
-                    try await videoDownloader.download()
+                    try await errorHandler.perform {
+                        try await videoDownloader.download()
+                    } ignore: {
+                        if let html = await errorHandler.handler?.replaceHTML(tag: link.tag) {
+                            try await errorHandler.perform {
+                                try extractor.setHtml(html: html, for: link)
+                            }
+                            shouldSetRelativePath = false
+                        }
+                    }
                 } else if link.isCssLink {
                     let cssDownloader = OfflineCSSLinkDownloader(link: link, rootPath: rootPath, shouldCache: shouldCacheCSS, linksHandler: linksHandler)
                     cssDownloader.cookieString = part.cookieString
                     progress.addChild(cssDownloader.progress, withPendingUnitCount: 1)
-                    try await cssDownloader.download()
+                    try await errorHandler.perform {
+                        try await cssDownloader.download()
+                    }
                 } else {
-                    try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
+                    try await errorHandler.perform {
+                        try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
+                    } ignore: {
+                        if let html = await errorHandler.handler?.replaceHTML(tag: link.tag) {
+                            try await errorHandler.perform {
+                                try extractor.setHtml(html: html, for: link)
+                            }
+                            shouldSetRelativePath = false
+                        }
+                    }
                 }
             } else {
                 progress.completedUnitCount += 1
             }
 
-            try extractor.setRelativePath(for: link)
+            if shouldSetRelativePath {
+                try extractor.setRelativePath(for: link)
+            }
         }
     }
     
@@ -94,3 +135,19 @@ class OfflineEntryPartDownloader {
         return false
     }
 }
+
+//extension OfflineEntryPartDownloader {
+public enum OfflineEntryPartDownloaderError: Error, LocalizedError {
+    case cantDownloadHTMLPart(error: Error)
+    case cantDownloadLinkPart(error: Error)
+    
+    public var errorDescription: String? {
+        switch self {
+        case let .cantDownloadHTMLPart(error):
+            return "Can't download HTML part. Error: \(error)"
+        case let .cantDownloadLinkPart(error):
+            return "Can't download link part. Error: \(error)"
+        }
+    }
+}
+//}

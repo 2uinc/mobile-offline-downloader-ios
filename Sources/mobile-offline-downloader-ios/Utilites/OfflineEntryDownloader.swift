@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @objc public enum OfflineDownloaderStatus: Int {
-    case initialized, preparing, paused, active, completed, cancelled, removed, failed
+    case initialized, preparing, paused, active, completed, cancelled, removed, failed, partiallyDownloaded
 
     var canResume: Bool {
         return self == .paused
@@ -16,6 +16,7 @@ import Combine
 class OfflineEntryDownloader: NSObject {
     var config: OfflineDownloaderConfig
     var entry: OfflineDownloaderEntry
+    let errorHandler: OfflineErrorHandler
     private var task: Task<(), Never>?
     @objc dynamic var progress: Progress = Progress()
     lazy var statusPublisher: CurrentValueSubject<OfflineDownloaderStatus, Never> = {
@@ -35,31 +36,44 @@ class OfflineEntryDownloader: NSObject {
     init(entry: OfflineDownloaderEntry, config: OfflineDownloaderConfig) {
         self.entry = entry
         self.config = config
+        self.errorHandler = OfflineErrorHandler(config: config, entry: entry)
     }
 
     func start() {
         status = .preparing
+        entry.errors.removeAll()
         task = Task(priority: .background) {
             do {
                 entry.updateTimestamp()
                 if entry.parts.isEmpty {
                     // skip if data prepared already
-                    try await entry.saveToDB()
-                    try await prepare()
+                    try await errorHandler.perform {
+                        try await entry.saveToDB()
+                        try await prepare()
+                    }
                 }
                 status = .active
-                try await entry.saveToDB()
+                try await errorHandler.perform {
+                    try await entry.saveToDB()
+                }
                 progress.totalUnitCount = Int64(entry.parts.count)
                 for part in entry.parts {
-                    try await download(part: part)
+                    try await errorHandler.perform {
+                        try await download(part: part)
+                    }
                 }
                 entry.updateTimestamp()
-                status = .completed
-                try await entry.saveToDB()
+                if entry.errors.isEmpty {
+                    status = .completed
+                } else {
+                    status = .partiallyDownloaded
+                }
+                try await errorHandler.perform {
+                    try await entry.saveToDB()
+                }
             } catch {
                 if !error.isCancelled {
-                    entry.errors.append(error)
-                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error.localizedDescription)")
+                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error)")
                     status = .failed
                     entry.saveToDB(completion: {_ in})
                 }
@@ -77,7 +91,8 @@ class OfflineEntryDownloader: NSObject {
             part: part,
             rootPath: rootPath,
             htmlIndexName: config.indexFileName,
-            linksHandler: config.linksHandler
+            linksHandler: config.linksHandler,
+            errorHandler: errorHandler
         )
         progress.addChild(downloader.progress, withPendingUnitCount: 1)
         try await downloader.download()

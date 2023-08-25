@@ -37,7 +37,7 @@ public class OfflineDownloadsManager {
 
     public var completedEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .completed }
+            .filter { $0.status == .completed || $0.status == .partiallyDownloaded }
     }
 
     public var waitingEntries: [OfflineDownloaderEntry] {
@@ -140,7 +140,7 @@ public class OfflineDownloadsManager {
 
     private func start(entry: OfflineDownloaderEntry) {
         guard let entry = getQueuedEntry(for: entry) else { return }
-        if entry.status != .completed {
+        if entry.status != .completed || entry.status != .partiallyDownloaded {
             if entry.status != .initialized {
                 entry.status = .initialized
             }
@@ -166,7 +166,7 @@ public class OfflineDownloadsManager {
                     failedEntries.forEach {
                         $0.errors = []
                     }
-                } else if latestStatus == .completed {
+                } else if latestStatus == .completed || latestStatus == .partiallyDownloaded {
                     sourceQueuePublisher.send(.completed(success: true))
                 }
             }
@@ -240,7 +240,7 @@ public class OfflineDownloadsManager {
         savedEntry(for: object) { result in
             switch result {
             case .success(let entry):
-                completionHandler(.success(entry.status == .completed))
+                completionHandler(.success(entry.status == .completed || entry.status == .partiallyDownloaded))
             case .failure(let error):
                 completionHandler(.failure(error))
             }
@@ -356,7 +356,7 @@ public class OfflineDownloadsManager {
                     let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
                     completionBlock(.success(eventObject))
                 } else {
-                    let progress: Double = entry.status == .completed ? 1 : 0
+                    let progress: Double = entry.status == .completed || entry.status == .partiallyDownloaded ? 1 : 0
                     let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
                     completionBlock(.success(eventObject))
                 }
@@ -366,7 +366,7 @@ public class OfflineDownloadsManager {
             savedEntry(for: object) { result in
                 switch result {
                 case .success(let entry):
-                    let progress: Double = entry.status == .completed ? 1 : 0
+                    let progress: Double = entry.status == .completed || entry.status == .partiallyDownloaded ? 1 : 0
                     let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
                     completionBlock(.success(eventObject))
                 case .failure(let error):
@@ -405,13 +405,10 @@ public class OfflineDownloadsManager {
                 
                 self?.sendStatusEvent(for: downloader.entry, progress: downloader.progress.fractionCompleted)
                 
-                if status == .completed || status == .failed || status == .cancelled || status == .paused {
+                if status == .completed || status == .failed || status == .cancelled || status == .paused || status == .partiallyDownloaded {
                     self?.removeDownloader(for: downloader.entry)
-                }
-                
-                if status == .completed || status == .paused || status == .failed || status == .cancelled {
                     self?.startNext(latestStatus: status)
-                }
+                }                
             }
             .store(in: &cancellables)
         return downloader
