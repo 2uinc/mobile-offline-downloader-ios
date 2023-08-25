@@ -72,6 +72,7 @@ class OfflineEntryPartDownloader {
     
     private func downloadLinks(with extractor: OfflineHTMLLinksExtractor) async throws {
         for link in part.links {
+            print("!!! start download link: \(link.link)")
             var shouldSetRelativePath: Bool = true
             if Task.isCancelled { throw URLError(.cancelled) }
             if !link.isDownloaded {
@@ -82,7 +83,7 @@ class OfflineEntryPartDownloader {
                     try await errorHandler.perform {
                         try await videoDownloader.download()
                     } ignore: {
-                        if let html = errorHandler.handler?.replaceHTML(tag: link.tag) {
+                        if let html = await errorHandler.handler?.replaceHTML(tag: link.tag) {
                             try await errorHandler.perform {
                                 try extractor.setHtml(html: html, for: link)
                             }
@@ -100,7 +101,10 @@ class OfflineEntryPartDownloader {
                     try await errorHandler.perform {
                         try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
                     } ignore: {
-                        if let html = errorHandler.handler?.replaceHTML(tag: link.tag) {
+                        if let html = await errorHandler.handler?.replaceHTML(tag: link.tag) {
+                            try await errorHandler.perform {
+                                try extractor.setHtml(html: html, for: link)
+                            }
                             shouldSetRelativePath = false
                         }
                     }
