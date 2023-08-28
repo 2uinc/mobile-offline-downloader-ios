@@ -12,6 +12,45 @@ struct OfflineErrorHandler {
         return OfflineErrorHandlerError.nonCriticalErrors(errors: entry.errors, dataModel: entry.dataModel)
     }
 
+    func readableErrorDescription(for error: Error) -> String {
+        var entryInfo: String = ""
+        var message: String = ""
+        let decoder = JSONDecoder()
+        if let data = entry.dataModel.json.data(using: .utf8),
+            let dictionary = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) {
+            entryInfo.append(" for content \"\(dictionary["title"] ?? "Unknown")\"")
+            entryInfo.append(", courseID: \(dictionary["courseID"] ?? "Unknown")")
+            entryInfo.append(", link: \(dictionary["htmlURL"] ?? "Unknown")\n")
+        } else {
+            entryInfo.append(" for unknown content\n")
+        }
+        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            entryInfo.append("▧ Build: \(build), Version: \(version)\n")
+        }
+        entryInfo.append("▧ Downloading Error(s):\n")
+
+        switch error {
+            case OfflineErrorHandlerError.unsupported:
+                message.append("▧ [ERROR: UNSUPPORTED]")
+                entryInfo.append("➤ Unsupported content type.\n")
+            case let OfflineErrorHandlerError.nonCriticalErrors(errors, _):
+                message.append("▧ [ERROR: NON-CRITICAL]")
+                for error in errors {
+                    entryInfo.append("➤ \(error.localizedDescription).\n")
+                }
+            case let OfflineErrorHandlerError.errors(errors, _):
+                message.append("▧ [ERROR: CRITICAL]")
+                for error in errors {
+                    entryInfo.append("➤ \(error.localizedDescription).\n")
+                }
+            default:
+                break
+        }
+        message.append(entryInfo)
+        return message
+    }
+
     func perform<T>(_ block: () async throws -> T, ignore: () async throws -> T) async throws -> T {
         do {
             return try await block()
