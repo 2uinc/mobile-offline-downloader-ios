@@ -7,6 +7,7 @@ public final class OfflineDownloaderEntry: Codable {
     var updatedTimestamp: Double
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
     var errors: [Error] = []
+    var isForcePaused: Bool = false
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
@@ -50,6 +51,7 @@ public final class OfflineDownloaderEntry: Codable {
         case status
         case updatedTimestamp
         case errors
+        case isForcePaused
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -59,6 +61,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(userInfo, forKey: .userInfo)
         try container.encode(status.rawValue, forKey: .status)
         try container.encode(updatedTimestamp, forKey: .updatedTimestamp)
+        try container.encode(isForcePaused, forKey: .isForcePaused)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -69,6 +72,7 @@ public final class OfflineDownloaderEntry: Codable {
         let statusRawValue = try container.decode(Int.self, forKey: .status)
         status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
         updatedTimestamp = try container.decode(Double.self, forKey: .updatedTimestamp)
+        isForcePaused = try container.decode(Bool.self, forKey: .isForcePaused)
     }
     
     // MARK: Storage
