@@ -12,18 +12,9 @@ struct OfflineErrorHandler {
         return OfflineErrorHandlerError.nonCriticalErrors(errors: entry.errors, dataModel: entry.dataModel)
     }
 
-    func readableErrorDescription(for error: Error) -> String {
+    func readableErrorDescription(for error: Error) -> (String, OfflineStorageDataModel) {
         var entryInfo: String = ""
         var message: String = ""
-        let decoder = JSONDecoder()
-        if let data = entry.dataModel.json.data(using: .utf8),
-            let dictionary = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) {
-            entryInfo.append(" for content \"\(dictionary["title"] ?? "Unknown")\"")
-            entryInfo.append(", courseID: \(dictionary["courseID"] ?? "Unknown")")
-            entryInfo.append(", link: \(dictionary["htmlURL"] ?? "Unknown")\n")
-        } else {
-            entryInfo.append(" for unknown content\n")
-        }
         if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             entryInfo.append("▧ Build: \(build), Version: \(version)\n")
@@ -47,8 +38,9 @@ struct OfflineErrorHandler {
             default:
                 break
         }
+        message.append(" ###MODULE_DESCRIPTION###\n")
         message.append(entryInfo)
-        return message
+        return (message, entry.dataModel)
     }
 
     func perform<T>(_ block: () async throws -> T, ignore: () async throws -> T) async throws -> T {

@@ -10,7 +10,7 @@ public class OfflineDownloaderConfig {
     public var defaultMediaBackground: String = "#000080"
     public var mediaContainerClasses: [String] = ["fluid-width-video-wrapper"]
     public var linksHandler: LinksHandlerBlock?
-    public var errorsDescriptionHandler: ((String?, Bool) -> Void)?
+    public var errorsDescriptionHandler: (((String, OfflineStorageDataModel)?, Bool) -> Void)?
     
     public init(){}
 }
