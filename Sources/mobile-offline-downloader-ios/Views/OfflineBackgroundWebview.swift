@@ -11,8 +11,6 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
     var latestRedirectURL: URL?
-    private var error: Error?
-    private var errorTimer: Timer?
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
@@ -114,38 +112,15 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
     }
-
-    private func startErrorTimer() {
-        errorTimer = Timer.scheduledTimer(
-            withTimeInterval: 10,
-            repeats: false,
-            block: { [weak self] timer in
-                print("OfflineBackgroundWebview error timer fired")
-                self?.stopErrorTimer()
-                self?.didFinishBlock?(nil, self?.error)
-            }
-        )
-    }
-    
-    private func stopErrorTimer() {
-        errorTimer?.invalidate()
-        errorTimer = nil
-    }
 }
 
 extension OfflineBackgroundWebview: WKNavigationDelegate {
 
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation, withError error: Error) {
-        self.error = error
-        startErrorTimer()
-    }
-
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        stopErrorTimer()
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        didFinishBlock?(nil, error)
     }
     
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        stopErrorTimer()
         let request = navigationAction.request
         if request.url?.scheme == completionScheme {
             webView.evaluateJavaScript(

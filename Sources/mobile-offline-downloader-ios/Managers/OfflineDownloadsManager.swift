@@ -394,7 +394,7 @@ public class OfflineDownloadsManager {
             .receive(on: DispatchQueue.main)
             .sink {[weak self, weak downloader] fractionCompleted in
                 guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
-
+                print("OfflineDownloadsManager progress = \(downloader.progress.fractionCompleted) data = \(entry.dataModel.json)")
                 let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: downloader.progress.fractionCompleted)
                 self?.sourcePublisher.send(.progressChanged(object: publisherObject))
             }
