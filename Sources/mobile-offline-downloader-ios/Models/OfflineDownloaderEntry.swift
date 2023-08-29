@@ -4,15 +4,15 @@ public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
-    var updatedTimestamp: Double
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
     var errors: [Error] = []
     var isForcePaused: Bool = false
+    let createdDate: Double
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
         self.dataModel = dataModel
         self.parts = parts
-        self.updatedTimestamp = Date().timeIntervalSince1970
+        self.createdDate = Date().timeIntervalSince1970
     }
 
     public func addHtmlPart(_ html: String, baseURL: String?, cookieString: String? = nil) {
@@ -37,10 +37,6 @@ public final class OfflineDownloaderEntry: Codable {
     public func set(userInfo: String?) {
         self.userInfo = userInfo
     }
-
-    func updateTimestamp() {
-        updatedTimestamp = Date().timeIntervalSince1970
-    }
     
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {
@@ -49,9 +45,9 @@ public final class OfflineDownloaderEntry: Codable {
         case isDownloaded
         case userInfo
         case status
-        case updatedTimestamp
         case errors
         case isForcePaused
+        case createdDate
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -60,7 +56,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(parts, forKey: .parts)
         try container.encode(userInfo, forKey: .userInfo)
         try container.encode(status.rawValue, forKey: .status)
-        try container.encode(updatedTimestamp, forKey: .updatedTimestamp)
+        try container.encode(createdDate, forKey: .createdDate)
         try container.encode(isForcePaused, forKey: .isForcePaused)
     }
     
@@ -71,7 +67,7 @@ public final class OfflineDownloaderEntry: Codable {
         userInfo = try container.decode(String?.self, forKey: .userInfo)
         let statusRawValue = try container.decode(Int.self, forKey: .status)
         status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
-        updatedTimestamp = try container.decode(Double.self, forKey: .updatedTimestamp)
+        createdDate = try container.decode(Double.self, forKey: .createdDate)
         isForcePaused = try container.decode(Bool.self, forKey: .isForcePaused)
     }
     

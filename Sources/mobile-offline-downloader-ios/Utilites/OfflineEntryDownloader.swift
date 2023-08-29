@@ -45,7 +45,6 @@ class OfflineEntryDownloader: NSObject {
         entry.errors.removeAll()
         task = Task(priority: .background) {
             do {
-                entry.updateTimestamp()
                 if entry.parts.isEmpty {
                     // skip if data prepared already
                     try await errorHandler.perform {
@@ -63,7 +62,6 @@ class OfflineEntryDownloader: NSObject {
                         try await download(part: part)
                     }
                 }
-                entry.updateTimestamp()
                 if entry.errors.isEmpty {
                     status = .completed
                 } else {
@@ -72,9 +70,10 @@ class OfflineEntryDownloader: NSObject {
                 try await errorHandler.perform {
                     try await entry.saveToDB()
                 }
+                print("✅ Download of entry \(entry.dataModel.id) finished with error: \(errorHandler.nonCriticalError)")
             } catch {
-                if !error.isCancelled {
-                    print("⚠️ Download of entry = \(entry.dataModel.id) failed with error: \(error)")
+                if !error.isOfflineCancel {
+                    print("⚠️ Download of entry \(entry.dataModel.id) failed with error: \(error)")
                     status = .failed
                     entry.saveToDB(completion: {_ in})
                 }

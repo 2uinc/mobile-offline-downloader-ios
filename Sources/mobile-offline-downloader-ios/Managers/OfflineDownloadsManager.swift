@@ -36,7 +36,6 @@ public class OfflineDownloadsManager {
                 $0.status == .preparing ||
                 ($0.status == .paused && $0.isForcePaused)
             }
-            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
     }
 
     public var completedEntries: [OfflineDownloaderEntry] {
@@ -47,13 +46,11 @@ public class OfflineDownloadsManager {
     public var waitingEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .initialized }
-            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
     }
     
     public var pausedEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .paused }
-            .sorted(by: { $0.updatedTimestamp > $1.updatedTimestamp })
 
     }
     
@@ -91,10 +88,9 @@ public class OfflineDownloadsManager {
             self.isLoading = false
             switch result {
             case .success(let entries):
-                self.entries = entries
+                self.entries = entries.sorted(by: {$0.createdDate < $1.createdDate})
                 for entry in self.activeEntries + self.waitingEntries {
                     self.start(entry: entry)
-                    
                 }
                 self.sourceQueuePublisher.send(.entriesLoaded(error: nil))
             case .failure(let error):
@@ -267,6 +263,7 @@ public class OfflineDownloadsManager {
         let group = DispatchGroup()
         try completedEntries.forEach { entry in
             try removeLocalFiles(for: entry)
+            removeFromQueue(entry: entry)
             group.enter()
             removeFromStorage(entry: entry) {
                 group.leave()

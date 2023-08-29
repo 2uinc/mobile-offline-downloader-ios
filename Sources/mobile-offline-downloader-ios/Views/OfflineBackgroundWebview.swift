@@ -120,6 +120,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
             withTimeInterval: 10,
             repeats: false,
             block: { [weak self] timer in
+                print("OfflineBackgroundWebview error timer fired")
                 self?.stopErrorTimer()
                 self?.didFinishBlock?(nil, self?.error)
             }
