@@ -12,6 +12,37 @@ struct OfflineErrorHandler {
         return OfflineErrorHandlerError.nonCriticalErrors(errors: entry.errors, dataModel: entry.dataModel)
     }
 
+    func readableErrorDescription(for error: Error) -> (String, OfflineStorageDataModel) {
+        var entryInfo: String = ""
+        var message: String = ""
+        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            entryInfo.append("▧ Build: \(build), Version: \(version)\n")
+        }
+        entryInfo.append("▧ Downloading Error(s):\n")
+
+        switch error {
+            case OfflineErrorHandlerError.unsupported:
+                message.append("▧ [ERROR: UNSUPPORTED]")
+                entryInfo.append("➤ Unsupported content type.\n")
+            case let OfflineErrorHandlerError.nonCriticalErrors(errors, _):
+                message.append("▧ [ERROR: NON-CRITICAL]")
+                for error in errors {
+                    entryInfo.append("➤ \(error.localizedDescription).\n")
+                }
+            case let OfflineErrorHandlerError.errors(errors, _):
+                message.append("▧ [ERROR: CRITICAL]")
+                for error in errors {
+                    entryInfo.append("➤ \(error.localizedDescription).\n")
+                }
+            default:
+                break
+        }
+        message.append(" ###MODULE_DESCRIPTION###\n")
+        message.append(entryInfo)
+        return (message, entry.dataModel)
+    }
+
     func perform<T>(_ block: () async throws -> T, ignore: () async throws -> T) async throws -> T {
         do {
             return try await block()

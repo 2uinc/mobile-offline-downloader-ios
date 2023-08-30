@@ -71,11 +71,17 @@ class OfflineEntryDownloader: NSObject {
                     try await entry.saveToDB()
                 }
                 print("✅ Download of entry \(entry.dataModel.id) finished with error: \(errorHandler.nonCriticalError)")
+                if let error = errorHandler.nonCriticalError {
+                    config.errorsDescriptionHandler?(errorHandler.readableErrorDescription(for: error), false)
+                } else {
+                    config.errorsDescriptionHandler?(nil, false)
+                }
             } catch {
                 if !error.isOfflineCancel {
                     print("⚠️ Download of entry \(entry.dataModel.id) failed with error: \(error)")
                     status = .failed
                     entry.saveToDB(completion: {_ in})
+                    config.errorsDescriptionHandler?(errorHandler.readableErrorDescription(for: error), true)
                 }
             }
         }
