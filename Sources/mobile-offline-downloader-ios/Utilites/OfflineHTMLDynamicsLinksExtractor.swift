@@ -3,6 +3,12 @@ import WebKit
 
 @MainActor
 public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
+    public static var processPool = WKProcessPool() {
+        didSet {
+            OfflineBackgroundWebview.processPool = processPool
+        }
+    }
+
     private var initHtml: String?
     private var initURL: URL?
     private var baseURL: URL?

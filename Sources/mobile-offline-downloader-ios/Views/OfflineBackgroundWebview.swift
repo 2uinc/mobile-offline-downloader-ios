@@ -11,8 +11,11 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
     var latestRedirectURL: URL?
+    
+    static var processPool = WKProcessPool()
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        configuration.processPool = OfflineBackgroundWebview.processPool
         super.init(frame: frame, configuration: configuration)
         navigationDelegate = self
         addScript(to: configuration)
@@ -117,6 +120,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
 extension OfflineBackgroundWebview: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("!!! [0] webview failed with error = \(error)")
         didFinishBlock?(nil, error)
     }
     
@@ -130,8 +134,10 @@ extension OfflineBackgroundWebview: WKNavigationDelegate {
                     let decoder = JSONDecoder()
                     do {
                         let webviewData = try decoder.decode(OfflineBackgroundWebviewData.self, from: data)
+                        print("!!! webview without error. Data = \(webviewData)")
                         self?.didFinishBlock?(webviewData, nil)
                     } catch {
+                        print("!!! webview failed with error = \(error)")
                         self?.didFinishBlock?(nil, error)
                     }
                 } else {

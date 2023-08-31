@@ -254,8 +254,8 @@ public class OfflineDownloadsManager {
 
     public func delete(entry: OfflineDownloaderEntry) throws {
         cancel(entry: entry)
-        try removeLocalFiles(for: entry)
         removeFromStorage(entry: entry)
+        try removeLocalFiles(for: entry)
         startNext(latestStatus: .removed)
     }
 
