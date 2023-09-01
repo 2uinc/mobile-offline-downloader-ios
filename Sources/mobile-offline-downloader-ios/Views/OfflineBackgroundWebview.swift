@@ -11,6 +11,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
     var latestRedirectURL: URL?
+    var isCompletionCalled: Bool = false
     
     static var processPool = WKProcessPool()
 
@@ -23,6 +24,20 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+    }
+    
+    override func load(_ request: URLRequest) -> WKNavigation? {
+        resetProperties()
+        return super.load(request)
+    }
+    
+    override func loadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation? {
+        resetProperties()
+        return super.loadHTMLString(string, baseURL: baseURL)
+    }
+    
+    private func resetProperties() {
+        isCompletionCalled = false
     }
 
     private func addScript(to configuration: WKWebViewConfiguration) {
@@ -120,29 +135,32 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
 extension OfflineBackgroundWebview: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        print("!!! [0] webview failed with error = \(error)")
-        didFinishBlock?(nil, error)
+        if !isCompletionCalled {
+            isCompletionCalled = true
+            didFinishBlock?(nil, error)
+        }
     }
     
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let request = navigationAction.request
         if request.url?.scheme == completionScheme {
-            webView.evaluateJavaScript(
-                "JSON.stringify({ \"links\": window.extractedLinks, \"html\": document.documentElement.outerHTML })"
-            ) { [weak self] result, error in
-                if let result = result as? String, let data = result.data(using: .utf8) {
-                    let decoder = JSONDecoder()
-                    do {
-                        let webviewData = try decoder.decode(OfflineBackgroundWebviewData.self, from: data)
-                        print("!!! webview without error. Data = \(webviewData)")
-                        self?.didFinishBlock?(webviewData, nil)
-                    } catch {
-                        print("!!! webview failed with error = \(error)")
+            if !isCompletionCalled {
+                webView.evaluateJavaScript(
+                    "JSON.stringify({ \"links\": window.extractedLinks, \"html\": document.documentElement.outerHTML })"
+                ) { [weak self] result, error in
+                    if let result = result as? String, let data = result.data(using: .utf8) {
+                        let decoder = JSONDecoder()
+                        do {
+                            let webviewData = try decoder.decode(OfflineBackgroundWebviewData.self, from: data)
+                            self?.didFinishBlock?(webviewData, nil)
+                        } catch {
+                            self?.didFinishBlock?(nil, error)
+                        }
+                    } else {
                         self?.didFinishBlock?(nil, error)
                     }
-                } else {
-                    self?.didFinishBlock?(nil, error)
                 }
+                isCompletionCalled = true
             }
             decisionHandler(.cancel)
         } else {

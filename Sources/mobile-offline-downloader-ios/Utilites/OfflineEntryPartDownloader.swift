@@ -46,7 +46,7 @@ class OfflineEntryPartDownloader {
                 try await downloadLinks(with: extractor)
                 let html = try extractor.finalHTML()
                 let path = rootPath.appendPath(htmlIndexName)
-                try html.write(toFile: path, atomically: true, encoding: .utf8)
+                try html.write(toFile: path, atomically: true, encoding: .unicode)
                 progress.completedUnitCount = progress.totalUnitCount // completed all units
             } catch {
                 if error.isCancelled {
