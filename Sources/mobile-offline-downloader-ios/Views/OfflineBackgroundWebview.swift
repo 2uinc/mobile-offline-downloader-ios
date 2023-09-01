@@ -48,16 +48,30 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         window.extractedLinks = getLinksForElement(document);
         window.requestLinks = [];
         var origOpen = XMLHttpRequest.prototype.open;
+        var requestsCount = 0;
         XMLHttpRequest.prototype.open = function() {
+            stopCompletionTimer();
+            requestsCount = requestsCount + 1;
             this.addEventListener('load', function() {
+                requestsCount = requestsCount - 1;
+                if (requestsCount == 0) {
+                    startCompletionTimer();
+                }
+
                 if (this.responseURL != null && this.responseURL.length > 0) {
                     window.requestLinks.push(this.responseURL);
                 }
             });
-
-            this.addEventListener('load', function() {
-                if (this.responseURL != null && this.responseURL.length > 0) {
-                    window.requestLinks.push(this.responseURL);
+            this.addEventListener('error', function() {
+                requestsCount = requestsCount - 1;
+                if (requestsCount == 0) {
+                    startCompletionTimer();
+                }
+            });
+            this.addEventListener('abort', function() {
+                requestsCount = requestsCount - 1;
+                if (requestsCount == 0) {
+                    startCompletionTimer();
                 }
             });
 
@@ -122,12 +136,9 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         }
 
         addObserverForDomChanges();
-
-        document.addEventListener("load", function(event) {
-            startCompletionTimer();
-        });
+        startCompletionTimer();
         """
-        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
     }
 }
