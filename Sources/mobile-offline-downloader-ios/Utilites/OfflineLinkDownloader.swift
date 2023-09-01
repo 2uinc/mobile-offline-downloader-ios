@@ -10,7 +10,7 @@ public class OfflineLinkDownloader {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
-        let characterSet = CharacterSet(charactersIn: "{|}()'\"`@#").inverted
+        let characterSet = CharacterSet(charactersIn: "{|}()'\"`#").inverted
         guard let urlString = urlString.addingPercentEncoding(withAllowedCharacters: characterSet),
               let url = URL(string: urlString) else {
             throw OfflineLinkDownloaderError.wrongURL(url: urlString)
