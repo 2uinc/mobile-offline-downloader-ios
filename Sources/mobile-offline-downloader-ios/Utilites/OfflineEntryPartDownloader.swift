@@ -46,7 +46,7 @@ class OfflineEntryPartDownloader {
                 try await downloadLinks(with: extractor)
                 let html = try extractor.finalHTML()
                 let path = rootPath.appendPath(htmlIndexName)
-                try html.write(toFile: path, atomically: true, encoding: .utf8)
+                try replaceUnicodeSymbols(in: html).write(toFile: path, atomically: true, encoding: .utf8)
                 progress.completedUnitCount = progress.totalUnitCount // completed all units
             } catch {
                 if error.isCancelled {
@@ -68,6 +68,18 @@ class OfflineEntryPartDownloader {
                 throw OfflineEntryPartDownloaderError.cantDownloadLinkPart(error: error)
             }
         }
+    }
+    
+    private func replaceUnicodeSymbols(in html: String) -> String {
+        let replacedString: [String] = html.unicodeScalars.map { scalar -> String in
+            if scalar.isASCII {
+                return String(scalar)
+            } else {
+                return "&#x" + String(scalar.value, radix: 16) + ";"
+            }
+        }
+
+        return replacedString.joined()
     }
     
     private func downloadLinks(with extractor: OfflineHTMLLinksExtractor) async throws {
