@@ -7,6 +7,7 @@ public final class OfflineDownloaderEntry: Codable {
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
     var errors: [Error] = []
     var isForcePaused: Bool = false
+    var isUnsupported: Bool = false
     let createdDate: Double
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
@@ -38,6 +39,9 @@ public final class OfflineDownloaderEntry: Codable {
         self.userInfo = userInfo
     }
     
+    public func markAsUnsupported() {
+        isUnsupported = true
+    }
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {
         case dataModel
@@ -48,6 +52,7 @@ public final class OfflineDownloaderEntry: Codable {
         case errors
         case isForcePaused
         case createdDate
+        case isUnsupported
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -58,6 +63,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(status.rawValue, forKey: .status)
         try container.encode(createdDate, forKey: .createdDate)
         try container.encode(isForcePaused, forKey: .isForcePaused)
+        try container.encode(isUnsupported, forKey: .isUnsupported)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -69,6 +75,7 @@ public final class OfflineDownloaderEntry: Codable {
         status = OfflineDownloaderStatus(rawValue: statusRawValue) ?? .initialized
         createdDate = try container.decode(Double.self, forKey: .createdDate)
         isForcePaused = try container.decode(Bool.self, forKey: .isForcePaused)
+        isUnsupported = try container.decode(Bool.self, forKey: .isUnsupported)
     }
     
     // MARK: Storage

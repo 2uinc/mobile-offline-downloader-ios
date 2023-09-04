@@ -32,31 +32,39 @@ public class OfflineDownloadsManager {
     public var activeEntries: [OfflineDownloaderEntry] {
         entries
             .filter {
-                $0.status == .active ||
-                $0.status == .preparing ||
-                ($0.status == .paused && $0.isForcePaused)
+                (
+                    $0.status == .active ||
+                    $0.status == .preparing ||
+                    (
+                        $0.status == .paused && $0.isForcePaused
+                    )
+                ) && !$0.isUnsupported
             }
     }
 
     public var completedEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .completed || $0.status == .partiallyDownloaded }
+            .filter { ($0.status == .completed || $0.status == .partiallyDownloaded) && !$0.isUnsupported }
     }
 
     public var waitingEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .initialized }
+            .filter { $0.status == .initialized && !$0.isUnsupported }
     }
     
     public var pausedEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .paused }
-
+            .filter { $0.status == .paused && !$0.isUnsupported }
     }
     
     public var failedEntries: [OfflineDownloaderEntry] {
         entries
-            .filter { $0.status == .failed }
+            .filter { $0.status == .failed && !$0.isUnsupported }
+    }
+
+    public var unsupportedEntries: [OfflineDownloaderEntry] {
+        entries
+            .filter { $0.isUnsupported }
     }
 
     var downloaders: [OfflineEntryDownloader] = []
@@ -377,6 +385,14 @@ public class OfflineDownloadsManager {
         } catch {
             completionBlock(.failure(error))
         }
+    }
+    
+    public func isSupported(object: OfflineDownloadTypeProtocol) -> Bool {
+        if let entry = try? object.downloaderEntry(),
+           let localEntry = getEntry(for: entry.dataModel) {
+            return !localEntry.isUnsupported
+        }
+        return true
     }
     
     public func canDownload(object: OfflineDownloadTypeProtocol) -> Bool {
