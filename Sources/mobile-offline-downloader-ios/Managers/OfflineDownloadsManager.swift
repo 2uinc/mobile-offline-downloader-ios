@@ -10,6 +10,7 @@ public struct OfflineDownloadsManagerEventObject {
     public var object: OfflineStorageDataProtocol
     public var status: OfflineDownloaderStatus
     public var progress: Double
+    public var isSupported: Bool
 }
 
 public enum OfflineDownloadsQueueEvent {
@@ -141,7 +142,8 @@ public class OfflineDownloadsManager {
         let publisherObject = OfflineDownloadsManagerEventObject(
             object:  object,
             status: entry.status,
-            progress: progress
+            progress: progress,
+            isSupported: !entry.isUnsupported
         )
         sourcePublisher.send(.statusChanged(object: publisherObject))
     }
@@ -362,11 +364,11 @@ public class OfflineDownloadsManager {
             if let entry = getQueuedEntry(for: entry) {
                 if let downloader = getDownloader(for: entry) {
                     let progress = downloader.progress.fractionCompleted
-                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress)
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: progress, isSupported: !entry.isUnsupported)
                     completionBlock(.success(eventObject))
                 } else {
                     let progress: Double = entry.status == .completed || entry.status == .partiallyDownloaded ? 1 : 0
-                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress, isSupported: !entry.isUnsupported)
                     completionBlock(.success(eventObject))
                 }
                 return
@@ -376,7 +378,7 @@ public class OfflineDownloadsManager {
                 switch result {
                 case .success(let entry):
                     let progress: Double = entry.status == .completed || entry.status == .partiallyDownloaded ? 1 : 0
-                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress)
+                    let eventObject = OfflineDownloadsManagerEventObject(object: object, status: entry.status, progress: progress, isSupported: !entry.isUnsupported)
                     completionBlock(.success(eventObject))
                 case .failure(let error):
                     completionBlock(.failure(error))
@@ -385,14 +387,6 @@ public class OfflineDownloadsManager {
         } catch {
             completionBlock(.failure(error))
         }
-    }
-    
-    public func isSupported(object: OfflineDownloadTypeProtocol) -> Bool {
-        if let entry = try? object.downloaderEntry(),
-           let localEntry = getEntry(for: entry.dataModel) {
-            return !localEntry.isUnsupported
-        }
-        return true
     }
     
     public func canDownload(object: OfflineDownloadTypeProtocol) -> Bool {
@@ -410,7 +404,7 @@ public class OfflineDownloadsManager {
             .receive(on: DispatchQueue.main)
             .sink {[weak self, weak downloader] fractionCompleted in
                 guard let downloader = downloader, let object = self?.object(for: downloader.entry.dataModel) else { return }
-                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: downloader.progress.fractionCompleted)
+                let publisherObject = OfflineDownloadsManagerEventObject(object: object, status: downloader.status, progress: downloader.progress.fractionCompleted, isSupported: !downloader.entry.isUnsupported)
                 self?.sourcePublisher.send(.progressChanged(object: publisherObject))
             }
             .store(in: &cancellables)
