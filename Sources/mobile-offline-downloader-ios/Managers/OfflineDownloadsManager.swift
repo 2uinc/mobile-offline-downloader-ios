@@ -211,6 +211,9 @@ public class OfflineDownloadsManager {
 
     public func deleteDownloadingEntries() throws {
         try entries.filter {
+            if $0.isUnsupported {
+                return false
+            }
             switch $0.status {
             case .initialized, .active, .preparing, .paused, .failed, .cancelled:
                 return true
