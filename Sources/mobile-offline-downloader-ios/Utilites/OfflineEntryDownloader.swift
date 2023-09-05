@@ -45,6 +45,7 @@ class OfflineEntryDownloader: NSObject {
         entry.errors.removeAll()
         task = Task(priority: .background) {
             do {
+                if Task.isCancelled { throw URLError(.cancelled) }
                 if entry.parts.isEmpty {
                     // skip if data prepared already
                     try await errorHandler.perform {
@@ -52,6 +53,7 @@ class OfflineEntryDownloader: NSObject {
                         try await prepare()
                     }
                 }
+                if Task.isCancelled { throw URLError(.cancelled) }
                 status = .active
                 try await errorHandler.perform {
                     try await entry.saveToDB()
@@ -62,11 +64,13 @@ class OfflineEntryDownloader: NSObject {
                         try await download(part: part)
                     }
                 }
+                if Task.isCancelled { throw URLError(.cancelled) }
                 if entry.errors.isEmpty {
                     status = .completed
                 } else {
                     status = .partiallyDownloaded
                 }
+                if Task.isCancelled { throw URLError(.cancelled) }
                 try await errorHandler.perform {
                     try await entry.saveToDB()
                 }
