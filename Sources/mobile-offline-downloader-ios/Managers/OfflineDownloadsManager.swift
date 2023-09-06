@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Combine
 
 public enum OfflineDownloadsManagerEvent {
@@ -161,6 +162,7 @@ public class OfflineDownloadsManager {
                 let downloader = getDownloader(for: entry) ?? createDownloader(for: entry)
                 if downloader.status.canStart {
                     downloader.start()
+                    startIdle()
                 }
             }
         }
@@ -179,6 +181,7 @@ public class OfflineDownloadsManager {
                 } else if latestStatus == .completed || latestStatus == .partiallyDownloaded {
                     sourceQueuePublisher.send(.completed(success: true))
                 }
+                stopIdle()
             }
             return
         }
@@ -458,5 +461,17 @@ public class OfflineDownloadsManager {
                 start(entry: $0)
             }
         }
+    }
+    
+    // MARK: Idle timer
+    
+    func startIdle() {
+        if !UIApplication.shared.isIdleTimerDisabled {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+    }
+    
+    func stopIdle() {
+        UIApplication.shared.isIdleTimerDisabled = false
     }
 }
