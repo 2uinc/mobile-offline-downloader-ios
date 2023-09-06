@@ -49,7 +49,7 @@ class OfflineEntryPartDownloader {
                 try replaceUnicodeSymbols(in: html).write(toFile: path, atomically: true, encoding: .utf8)
                 progress.completedUnitCount = progress.totalUnitCount // completed all units
             } catch {
-                if error.isCancelled {
+                if error.isOfflineCancel {
                     throw error
                 }
                 throw OfflineEntryPartDownloaderError.cantDownloadHTMLPart(error: error)
@@ -62,7 +62,7 @@ class OfflineEntryPartDownloader {
                 part.append(links: [link])
                 try await OfflineLinkDownloader.download(link: link, to: rootPath, with: progress, cookieString: part.cookieString)
             } catch {
-                if error.isCancelled {
+                if error.isOfflineCancel {
                     throw error
                 }
                 throw OfflineEntryPartDownloaderError.cantDownloadLinkPart(error: error)

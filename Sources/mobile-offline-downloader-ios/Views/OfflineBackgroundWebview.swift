@@ -152,6 +152,7 @@ extension OfflineBackgroundWebview: WKNavigationDelegate {
         }
     }
     
+    }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let request = navigationAction.request
         if request.url?.scheme == completionScheme {

@@ -71,7 +71,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             data = try await fetchDynamicHTML()
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData(error:error)
@@ -96,7 +96,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
             })
             return links
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetStorage(error: error)
