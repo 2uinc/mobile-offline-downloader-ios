@@ -6,7 +6,7 @@ public final class OfflineDownloaderEntry: Codable {
     public var userInfo: String?
     @objc public dynamic var status: OfflineDownloaderStatus = .initialized
     var errors: [Error] = []
-    var isForcePaused: Bool = false
+    private(set) var isForcePaused: Bool = false
     var isUnsupported: Bool = false
     let createdDate: Double
 
@@ -41,6 +41,10 @@ public final class OfflineDownloaderEntry: Codable {
     
     public func markAsUnsupported() {
         isUnsupported = true
+    }
+    
+    public func setForcePaused(_ value: Bool) {
+        isForcePaused = value
     }
     // MARK: - Codable
     private enum CodingKeys : String, CodingKey {
