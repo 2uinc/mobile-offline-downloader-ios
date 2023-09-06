@@ -2,6 +2,8 @@ import Foundation
 
 public class OfflineLinkDownloader {
     let retryCountLimit: Int = 3
+    private var downloadTask: URLSessionDownloadTask?
+    private var dataTask: URLSessionDataTask?
     public var progress: Progress = Progress(totalUnitCount: 1)
     public var additionCookies: String?
     
@@ -137,10 +139,9 @@ public class OfflineLinkDownloader {
     }
 
     private func download(with request: URLRequest, toFolder folder: String) async throws -> URL {
-        var task: URLSessionDownloadTask?
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                task = URLSession.shared.downloadTask(with: request) {[weak self] url, response, error in
+            try await withCheckedThrowingContinuation {[weak self] continuation in
+                self?.downloadTask = URLSession.shared.downloadTask(with: request) {[weak self] url, response, error in
                     if let error = error {
                         continuation.resume(throwing: error)
                     } else if let url = url, let response = response, let self = self {
@@ -156,13 +157,13 @@ public class OfflineLinkDownloader {
                         continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
                     }
                 }
-                if let taskProgress = task?.progress {
-                    progress.addChild(taskProgress, withPendingUnitCount: 1)
+                if let taskProgress = self?.downloadTask?.progress {
+                    self?.progress.addChild(taskProgress, withPendingUnitCount: 1)
                 }
-                task?.resume()
+                self?.downloadTask?.resume()
             }
-        } onCancel: { [weak task] in
-            task?.cancel()
+        } onCancel: { [weak self] in
+            self?.downloadTask?.cancel()
         }
     }
     
@@ -170,10 +171,9 @@ public class OfflineLinkDownloader {
         if #available(iOS 15.0, *) {
             return try await URLSession.shared.data(for: request)
         } else {
-            var task: URLSessionDataTask?
-            return try await withTaskCancellationHandler {
+            return try await withTaskCancellationHandler { [weak self] in
                 try await withCheckedThrowingContinuation { continuation in
-                    task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+                    self?.dataTask = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
                         if let error = error {
                             continuation.resume(throwing: error)
                         } else if let data = data, let response = response {
@@ -183,14 +183,14 @@ public class OfflineLinkDownloader {
                         }
                     })
 
-                    if let taskProgress = task?.progress {
-                        progress.addChild(taskProgress, withPendingUnitCount: 1)
+                    if let taskProgress = self?.dataTask?.progress {
+                        self?.progress.addChild(taskProgress, withPendingUnitCount: 1)
                     }
 
-                    task?.resume()
+                    self?.dataTask?.resume()
                 }
-            } onCancel: { [weak task] in
-                task?.cancel()
+            } onCancel: { [weak self] in
+                self?.dataTask?.cancel()
             }
         }
     }
