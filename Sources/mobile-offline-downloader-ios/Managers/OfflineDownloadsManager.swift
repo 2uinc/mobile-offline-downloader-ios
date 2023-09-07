@@ -448,7 +448,6 @@ public class OfflineDownloadsManager {
     
     // MARK: All queue functions
     public func pauseAllActive() {
-        print("ALARM pauseAllActive")
         activeEntries.forEach {
             $0.setForcePaused(true)
             pause(entry: $0)
@@ -456,7 +455,6 @@ public class OfflineDownloadsManager {
     }
     
     public func resumeAllActive() {
-        print("ALARM resumeAllActive")
         pausedEntries.forEach {
             if $0.isForcePaused {
                 $0.setForcePaused(false)
