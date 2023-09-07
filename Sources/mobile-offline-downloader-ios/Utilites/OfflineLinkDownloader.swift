@@ -1,12 +1,15 @@
 import Foundation
 
 public class OfflineLinkDownloader {
+    let retryCountLimit: Int = 3
+    private var downloadTask: URLSessionDownloadTask?
+    private var dataTask: URLSessionDataTask?
     public var progress: Progress = Progress(totalUnitCount: 1)
     public var additionCookies: String?
     
     public init() {}
     
-    public func download(urlString: String, toFolder folder: String) async throws -> URL {
+    public func download(urlString: String, toFolder folder: String, retryCount: Int = 0, errors: [Error] = []) async throws -> URL {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
@@ -22,14 +25,22 @@ public class OfflineLinkDownloader {
             let newURL = try await download(with: request, toFolder: folder)
             return newURL
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
-            throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
+            
+            var newErrors = errors
+            newErrors.append(error)
+
+            if retryCount < retryCountLimit - 1 {
+                return try await download(urlString: urlString, toFolder: folder, retryCount: retryCount + 1, errors: newErrors)
+            } else {
+                throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, errors: newErrors)
+            }
         }
     }
     
-    public func data(urlString: String) async throws -> Data {
+    public func data(urlString: String, retryCount: Int = 0, errors: [Error] = []) async throws -> Data {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
 
@@ -43,10 +54,18 @@ public class OfflineLinkDownloader {
             let (data, _) = try await data(with: request)
             return data
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
-            throw OfflineLinkDownloaderError.cantDownloadFile(url: url.absoluteString, error: error)
+            
+            var newErrors = errors
+            newErrors.append(error)
+
+            if retryCount < retryCountLimit - 1 {
+                return try await data(urlString: urlString, retryCount: retryCount + 1, errors: newErrors)
+            } else {
+                throw OfflineLinkDownloaderError.cantGetData(url: url.absoluteString, errors: newErrors)
+            }
         }
     }
     
@@ -120,10 +139,9 @@ public class OfflineLinkDownloader {
     }
 
     private func download(with request: URLRequest, toFolder folder: String) async throws -> URL {
-        var task: URLSessionDownloadTask?
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                task = URLSession.shared.downloadTask(with: request) {[weak self] url, response, error in
+            try await withCheckedThrowingContinuation {[weak self] continuation in
+                self?.downloadTask = URLSession.shared.downloadTask(with: request) {[weak self] url, response, error in
                     if let error = error {
                         continuation.resume(throwing: error)
                     } else if let url = url, let response = response, let self = self {
@@ -139,13 +157,13 @@ public class OfflineLinkDownloader {
                         continuation.resume(throwing: OfflineLinkDownloaderError.unknown)
                     }
                 }
-                if let taskProgress = task?.progress {
-                    progress.addChild(taskProgress, withPendingUnitCount: 1)
+                if let taskProgress = self?.downloadTask?.progress {
+                    self?.progress.addChild(taskProgress, withPendingUnitCount: 1)
                 }
-                task?.resume()
+                self?.downloadTask?.resume()
             }
-        } onCancel: { [weak task] in
-            task?.cancel()
+        } onCancel: { [weak self] in
+            self?.downloadTask?.cancel()
         }
     }
     
@@ -153,10 +171,9 @@ public class OfflineLinkDownloader {
         if #available(iOS 15.0, *) {
             return try await URLSession.shared.data(for: request)
         } else {
-            var task: URLSessionDataTask?
-            return try await withTaskCancellationHandler {
+            return try await withTaskCancellationHandler { [weak self] in
                 try await withCheckedThrowingContinuation { continuation in
-                    task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+                    self?.dataTask = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
                         if let error = error {
                             continuation.resume(throwing: error)
                         } else if let data = data, let response = response {
@@ -166,14 +183,14 @@ public class OfflineLinkDownloader {
                         }
                     })
 
-                    if let taskProgress = task?.progress {
-                        progress.addChild(taskProgress, withPendingUnitCount: 1)
+                    if let taskProgress = self?.dataTask?.progress {
+                        self?.progress.addChild(taskProgress, withPendingUnitCount: 1)
                     }
 
-                    task?.resume()
+                    self?.dataTask?.resume()
                 }
-            } onCancel: { [weak task] in
-                task?.cancel()
+            } onCancel: { [weak self] in
+                self?.dataTask?.cancel()
             }
         }
     }
@@ -192,7 +209,8 @@ extension OfflineLinkDownloader {
     enum OfflineLinkDownloaderError: Error, LocalizedError {
         case unknown
         case wrongURL(url: String)
-        case cantDownloadFile(url: String, error: Error)
+        case cantDownloadFile(url: String, errors: [Error])
+        case cantGetData(url: String, errors: [Error])
         case cantConvertData
 
         var errorDescription: String? {
@@ -201,8 +219,10 @@ extension OfflineLinkDownloader {
                 return "Unknown error was occured"
             case .wrongURL(let url):
                 return "URL = \"\(url)\" is incorrect and couldn't be downloaded."
-            case let .cantDownloadFile(url, error):
-                return "Can't download file at: \(url), with error : \(error.localizedDescription)"
+            case let .cantDownloadFile(url, errors):
+                return "Can't download file at: \(url), with errors : \(errors)"
+            case let .cantGetData(url, errors):
+                return "Can't get data at: \(url), with errors : \(errors)"
             case .cantConvertData:
                 return "Can't convert data."
             }

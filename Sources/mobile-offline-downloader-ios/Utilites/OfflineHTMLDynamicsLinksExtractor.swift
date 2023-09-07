@@ -71,7 +71,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         do {
             data = try await fetchDynamicHTML()
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetWebviewData(error:error)
@@ -96,7 +96,7 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
             })
             return links
         } catch {
-            if error.isCancelled {
+            if error.isOfflineCancel {
                 throw error
             }
             throw OfflineHTMLDynamicsLinksExtractorError.cantGetStorage(error: error)
@@ -107,8 +107,8 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
         if Task.isCancelled { throw URLError(.cancelled) }
         let result: OfflineBackgroundWebview.OfflineBackgroundWebviewData? = try await withTaskCancellationHandler(
             operation: {
-                try await withCheckedThrowingContinuation {[weak webview] continuation in
-                    webview?.didFinishBlock = { data, error in
+                try await withCheckedThrowingContinuation {[weak self] continuation in
+                    self?.webview?.didFinishBlock = { data, error in
                         if let error = error {
                             if error.isOfflineCancel {
                                 continuation.resume(throwing: error)
@@ -123,17 +123,17 @@ public class OfflineHTMLDynamicsLinksExtractor: OfflineLinksExtractorProtocol {
                             continuation.resume(returning: data)
                         }
                     }
-                    if let url = initURL {
+                    if let url = self?.initURL {
                         let request = URLRequest(url: url)
-                        _ = webview?.load(request)
-                    } else if let html = initHtml {
-                        _ = webview?.loadHTMLString(html, baseURL: baseURL)
+                        _ = self?.webview?.load(request)
+                    } else if let html = self?.initHtml {
+                        _ = self?.webview?.loadHTMLString(html, baseURL: self?.baseURL)
                     }
                 }
             },
-            onCancel: {
-                Task { @MainActor in
-                    stopLoading()
+            onCancel: { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.stopLoading()
                 }
             }
         )
