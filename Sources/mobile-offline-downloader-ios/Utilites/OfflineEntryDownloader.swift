@@ -82,6 +82,7 @@ class OfflineEntryDownloader: NSObject {
                 }
             } catch {
                 if !error.isOfflineCancel {
+                    print("ALARM \(entry.dataModel.id) failed with error: \(error)")
                     print("⚠️ Download of entry \(entry.dataModel.id) failed with error: \(error)")
                     status = .failed
                     entry.saveToDB(completion: {_ in})
