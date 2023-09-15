@@ -174,7 +174,7 @@ final public class RealmStorage: LocalStorage {
                     }
                     guard let objToDelete = realm.object(
                         ofType: type.self,
-                        forPrimaryKey: value.id
+                        forPrimaryKey: value.uniqueId
                     ) else {
                         DispatchQueue.main.async {
                             completionHandler(.failure(RealmError.error))
