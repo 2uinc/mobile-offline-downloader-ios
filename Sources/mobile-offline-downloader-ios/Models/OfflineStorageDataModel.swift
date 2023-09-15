@@ -12,6 +12,7 @@ public final class OfflineStorageDataModel: StoreObject, Storable, Codable {
         self.type = type
         self.json = json
         self.uniqueId = OfflineStorageDataModel.uniqueId(from: id, containerID: containerID)
+        self.containerID = containerID
     }
     
     public override init() {
