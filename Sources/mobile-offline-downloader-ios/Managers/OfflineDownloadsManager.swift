@@ -66,7 +66,7 @@ public class OfflineDownloadsManager {
             .filter { $0.isUnsupported }
     }
     
-    private var serverErrors: [OfflineDownloaderEntry] {
+    public var serverErrors: [OfflineDownloaderEntry] {
         entries
             .filter{ $0.isServerError }
     }
