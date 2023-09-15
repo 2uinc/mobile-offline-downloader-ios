@@ -119,7 +119,8 @@ extension OfflineDownloaderEntry: OfflineStorageDataProtocol {
         guard let jsonString = String(data: json, encoding: .utf8) else {
             throw OfflineStorageDataError.cantConvertToData
         }
-        return OfflineStorageDataModel(id: dataModel.id + "_" + dataModel.type , type: "OfflineStorageDataModel", json: jsonString)
+        let containerId = OfflineStorageManager.shared.config.containerID
+        return OfflineStorageDataModel(id: dataModel.id + "_" + dataModel.type , type: "OfflineStorageDataModel", json: jsonString, containerID: containerId)
     }
     
     public static func fromOfflineModel(_ model: OfflineStorageDataModel) throws -> OfflineDownloaderEntry {

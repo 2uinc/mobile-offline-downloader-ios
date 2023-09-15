@@ -24,11 +24,7 @@ public enum OfflineDownloadsQueueEvent {
 public class OfflineDownloadsManager {
     public static var shared: OfflineDownloadsManager = .init()
 
-    public private(set) var config: OfflineDownloaderConfig = OfflineDownloaderConfig() {
-        didSet {
-            updateFolder()
-        }
-    }
+    public private(set) var config: OfflineDownloaderConfig = OfflineDownloaderConfig()
 
     var entries: [OfflineDownloaderEntry] = []
     public var isLoading: Bool = false
@@ -92,12 +88,13 @@ public class OfflineDownloadsManager {
             .eraseToAnyPublisher()
     }()
 
-    init() {
+    public func start() {
         updateFolder()
         loadEntries()
     }
-
+    
     private func loadEntries() {
+        entries.removeAll()
         isLoading = true
         sourceQueuePublisher.send(.entriesStartLoad)
         OfflineStorageManager.shared.loadAll(of: OfflineDownloaderEntry.self) { result in
