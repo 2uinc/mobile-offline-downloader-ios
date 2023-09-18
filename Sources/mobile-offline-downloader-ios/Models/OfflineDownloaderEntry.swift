@@ -4,7 +4,14 @@ public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
-    @objc public dynamic var status: OfflineDownloaderStatus = .initialized
+    @objc public dynamic var status: OfflineDownloaderStatus = .initialized {
+        didSet {
+            if status == .preparing || status == .initialized {
+                isServerError = false
+                isForcePaused = false
+            }
+        }
+    }
     var errors: [Error] = []
     private(set) var isForcePaused: Bool = false
     var isUnsupported: Bool = false
