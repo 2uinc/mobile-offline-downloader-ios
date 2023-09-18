@@ -175,7 +175,7 @@ public class OfflineDownloadsManager {
     private func startNext(latestStatus: OfflineDownloaderStatus) {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
-                if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty {
+                if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty || !serverErrors.isEmpty  {
 
                     sourceQueuePublisher.send(.completed(success: false))
 
