@@ -175,13 +175,18 @@ public class OfflineDownloadsManager {
     private func startNext(latestStatus: OfflineDownloaderStatus) {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
-                if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty || !serverErrors.isEmpty  {
+                if !failedEntries.filter({ !$0.errors.isEmpty }).isEmpty ||
+                    !serverErrors.filter({ !$0.errors.isEmpty }).isEmpty  {
 
                     sourceQueuePublisher.send(.completed(success: false))
 
                     failedEntries.forEach {
                         $0.errors = []
                     }
+                    serverErrors.forEach {
+                        $0.errors = []
+                    }
+
                 } else if latestStatus == .completed || latestStatus == .partiallyDownloaded {
                     sourceQueuePublisher.send(.completed(success: true))
                 }
