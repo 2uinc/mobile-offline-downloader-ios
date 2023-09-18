@@ -4,10 +4,18 @@ public final class OfflineDownloaderEntry: Codable {
     public var dataModel: OfflineStorageDataModel
     public var parts: [OfflineDownloaderEntryPart]
     public var userInfo: String?
-    @objc public dynamic var status: OfflineDownloaderStatus = .initialized
+    @objc public dynamic var status: OfflineDownloaderStatus = .initialized {
+        didSet {
+            if status == .preparing || status == .initialized {
+                isServerError = false
+                isForcePaused = false
+            }
+        }
+    }
     var errors: [Error] = []
     private(set) var isForcePaused: Bool = false
     var isUnsupported: Bool = false
+    var isServerError: Bool = false
     let createdDate: Double
 
     public init(dataModel: OfflineStorageDataModel, parts: [OfflineDownloaderEntryPart]) {
@@ -42,7 +50,11 @@ public final class OfflineDownloaderEntry: Codable {
     public func markAsUnsupported() {
         isUnsupported = true
     }
-    
+
+    public func markAsServerError() {
+        isServerError = true
+    }
+
     public func setForcePaused(_ value: Bool) {
         isForcePaused = value
     }
@@ -57,6 +69,7 @@ public final class OfflineDownloaderEntry: Codable {
         case isForcePaused
         case createdDate
         case isUnsupported
+        case isServerError
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -68,6 +81,7 @@ public final class OfflineDownloaderEntry: Codable {
         try container.encode(createdDate, forKey: .createdDate)
         try container.encode(isForcePaused, forKey: .isForcePaused)
         try container.encode(isUnsupported, forKey: .isUnsupported)
+        try container.encode(isServerError, forKey: .isServerError)
     }
     
     public required init(from decoder: Decoder) throws {
@@ -80,6 +94,7 @@ public final class OfflineDownloaderEntry: Codable {
         createdDate = try container.decode(Double.self, forKey: .createdDate)
         isForcePaused = try container.decode(Bool.self, forKey: .isForcePaused)
         isUnsupported = try container.decode(Bool.self, forKey: .isUnsupported)
+        isServerError = try container.decode(Bool.self, forKey: .isServerError)
     }
     
     // MARK: Storage
@@ -111,7 +126,8 @@ extension OfflineDownloaderEntry: OfflineStorageDataProtocol {
         guard let jsonString = String(data: json, encoding: .utf8) else {
             throw OfflineStorageDataError.cantConvertToData
         }
-        return OfflineStorageDataModel(id: dataModel.id + "_" + dataModel.type , type: "OfflineStorageDataModel", json: jsonString)
+        let containerId = OfflineStorageManager.shared.config.containerID
+        return OfflineStorageDataModel(id: dataModel.id + "_" + dataModel.type , type: "OfflineStorageDataModel", json: jsonString, containerID: containerId)
     }
     
     public static func fromOfflineModel(_ model: OfflineStorageDataModel) throws -> OfflineDownloaderEntry {

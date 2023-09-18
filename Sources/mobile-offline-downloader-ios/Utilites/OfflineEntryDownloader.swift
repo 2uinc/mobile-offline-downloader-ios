@@ -40,7 +40,6 @@ class OfflineEntryDownloader: NSObject {
     }
 
     func start() {
-        entry.setForcePaused(false)
         status = .preparing
         entry.errors.removeAll()
         task = Task(priority: .background) {

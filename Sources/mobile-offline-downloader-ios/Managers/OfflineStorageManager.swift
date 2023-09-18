@@ -4,7 +4,7 @@ public class OfflineStorageManager {
     
     public static let shared: OfflineStorageManager = .init()
     private let storage: LocalStorage = .current
-    private var config: OfflineStorageConfig = OfflineStorageConfig()
+    public private(set) var config: OfflineStorageConfig = OfflineStorageConfig()
 
     public func setConfig(config: OfflineStorageConfig) {
         self.config = config
@@ -51,7 +51,8 @@ public class OfflineStorageManager {
         castingType: T.Type,
         completionHandler: @escaping (Result<T, Error>) -> Void
     ) {
-        storage.object(OfflineStorageDataModel.self, forPrimaryKey: id) { [weak self] value in
+        let uniqueId = OfflineStorageDataModel.uniqueId(from: id, containerID: config.containerID)
+        storage.object(OfflineStorageDataModel.self, forPrimaryKey: uniqueId) { [weak self] value in
             guard let self = self, let data = value else {
                 completionHandler(.failure(OfflineStorageManagerError.text("Data not found")))
                 return
@@ -69,7 +70,8 @@ public class OfflineStorageManager {
         for id: String,
         completionHandler: @escaping (Bool) -> Void
     ) {
-        storage.object(OfflineStorageDataModel.self, forPrimaryKey: id) { value in
+        let uniqueId = OfflineStorageDataModel.uniqueId(from: id, containerID: config.containerID)
+        storage.object(OfflineStorageDataModel.self, forPrimaryKey: uniqueId) { value in
             completionHandler(value != nil)
         }
     }
@@ -84,7 +86,8 @@ public class OfflineStorageManager {
             }
             switch result {
             case .success(let data):
-                completionHandler(.success(data.compactMap { try? self.object(from: $0, for: type) }))
+                let filteredData = data.filter { $0.containerID == self.config.containerID }
+                completionHandler(.success(filteredData.compactMap { try? self.object(from: $0, for: type) }))
             case .failure(let error):
                 completionHandler(.failure(error))
             }
