@@ -24,7 +24,6 @@ let package = Package(
             name: "mobile-offline-downloader-ios",
             dependencies: [
                 "SwiftSoup",
-                .product(name: "Realm", package: "realm-swift"),
                 .product(name: "RealmSwift", package: "realm-swift")
             ]
         ),
