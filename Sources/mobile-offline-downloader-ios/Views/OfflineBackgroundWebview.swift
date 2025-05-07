@@ -1,5 +1,6 @@
 import Foundation
 import WebKit
+import Combine
 
 class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     struct OfflineBackgroundWebviewData: Codable {
@@ -8,10 +9,11 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     }
 
     let completionMessage: String = "loadCompleted"
-    let completionScheme: String = "completed"
     var didFinishBlock: ((OfflineBackgroundWebviewData?, Error?) -> Void)?
     var latestRedirectURL: URL?
     var isCompletionCalled: Bool = false
+    
+    private var timerCancellable: AnyCancellable?
     
     static var processPool = WKProcessPool()
 
@@ -19,6 +21,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         configuration.processPool = OfflineBackgroundWebview.processPool
         super.init(frame: frame, configuration: configuration)
         navigationDelegate = self
+        uiDelegate = self
         addScript(to: configuration)
     }
 
@@ -39,6 +42,9 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     private func resetProperties() {
         isCompletionCalled = false
     }
+    
+    private let startCompletionTimerFunction = "startCompletionTimer"
+    private let stopCompletionTimerFunction = "stopCompletionTimer"
 
     private func addScript(to configuration: WKWebViewConfiguration) {
         let sources = sourceTags.map { "\"\($0)\"" }.joined(separator: ",")
@@ -50,12 +56,12 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         var origOpen = XMLHttpRequest.prototype.open;
         var requestsCount = 0;
         XMLHttpRequest.prototype.open = function() {
-            stopCompletionTimer();
+            alert('\(stopCompletionTimerFunction)');
             requestsCount = requestsCount + 1;
             this.addEventListener('load', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    startCompletionTimer();
+                    alert('\(startCompletionTimerFunction)');
                 }
 
                 if (this.responseURL != null && this.responseURL.length > 0) {
@@ -65,13 +71,13 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
             this.addEventListener('error', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    startCompletionTimer();
+                    alert('\(startCompletionTimerFunction)');
                 }
             });
             this.addEventListener('abort', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    startCompletionTimer();
+                    alert('\(startCompletionTimerFunction)');
                 }
             });
 
@@ -90,23 +96,12 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         }
 
         function htmlChanged(mutationsList, observer) {
-            startCompletionTimer();
+            alert('\(startCompletionTimerFunction)');
             for (let mutation of mutationsList) {
                 let links = getLinksForElement(mutation.target);
                 window.extractedLinks = window.extractedLinks.concat(links);
                 window.extractedLinks = window.extractedLinks.filter((v, i, a) => a.indexOf(v) === i);
             }
-        }
-
-        function startCompletionTimer() {
-            stopCompletionTimer();
-            window.timerId = setTimeout( function() {
-                window.location = "\(completionScheme)://completionScheme.completionScheme";
-            }, 10000);
-        }
-
-        function stopCompletionTimer() {
-            clearTimeout(window.timerId);
         }
 
         function canDownload(tag, link) {
@@ -136,14 +131,52 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         }
 
         addObserverForDomChanges();
-        startCompletionTimer();
+        alert('\(startCompletionTimerFunction)');
         """
         let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        configuration.preferences.javaScriptEnabled = true
         configuration.userContentController.addUserScript(script)
     }
 }
 
-extension OfflineBackgroundWebview: WKNavigationDelegate {
+extension OfflineBackgroundWebview: WKNavigationDelegate, WKUIDelegate {
+    func startTimer() {
+        let startTime = Date().timeIntervalSince1970
+        stopTimer()
+        timerCancellable = Timer.publish(every: 10, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.complete()
+                    self?.stopTimer()
+                }
+            }
+    }
+    
+    func stopTimer() {
+        timerCancellable = nil
+    }
+    
+    func complete() {
+        if !isCompletionCalled {
+            evaluateJavaScript(
+                "JSON.stringify({ \"links\": window.extractedLinks, \"html\": document.documentElement.outerHTML })"
+            ) { [weak self] result, error in
+                if let result = result as? String, let data = result.data(using: .utf8) {
+                    let decoder = JSONDecoder()
+                    do {
+                        let webviewData = try decoder.decode(OfflineBackgroundWebviewData.self, from: data)
+                        self?.didFinishBlock?(webviewData, nil)
+                    } catch {
+                        self?.didFinishBlock?(nil, error)
+                    }
+                } else {
+                    self?.didFinishBlock?(nil, error)
+                }
+            }
+            isCompletionCalled = true
+        }
+    }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         if !isCompletionCalled {
@@ -151,34 +184,23 @@ extension OfflineBackgroundWebview: WKNavigationDelegate {
             didFinishBlock?(nil, error)
         }
     }
+    
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
+        switch message {
+        case startCompletionTimerFunction:
+            startTimer()
+        case stopCompletionTimerFunction:
+            stopTimer()
+        default:
+            break
+        }
+        completionHandler()
+    }    
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        let request = navigationAction.request
-        if request.url?.scheme == completionScheme {
-            if !isCompletionCalled {
-                webView.evaluateJavaScript(
-                    "JSON.stringify({ \"links\": window.extractedLinks, \"html\": document.documentElement.outerHTML })"
-                ) { [weak self] result, error in
-                    if let result = result as? String, let data = result.data(using: .utf8) {
-                        let decoder = JSONDecoder()
-                        do {
-                            let webviewData = try decoder.decode(OfflineBackgroundWebviewData.self, from: data)
-                            self?.didFinishBlock?(webviewData, nil)
-                        } catch {
-                            self?.didFinishBlock?(nil, error)
-                        }
-                    } else {
-                        self?.didFinishBlock?(nil, error)
-                    }
-                }
-                isCompletionCalled = true
-            }
-            decisionHandler(.cancel)
-        } else {
-            if navigationAction.sourceFrame.isMainFrame {
-                latestRedirectURL = navigationAction.request.url
-            }
-            decisionHandler(.allow)
+        if navigationAction.sourceFrame.isMainFrame {
+            latestRedirectURL = navigationAction.request.url
         }
+        decisionHandler(.allow)
     }
 }
