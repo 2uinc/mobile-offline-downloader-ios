@@ -14,19 +14,28 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
     var isCompletionCalled: Bool = false
     
     private var timerCancellable: AnyCancellable?
+    private let messageHandlerName = "nativeHandler"
+    let startCompletionTimerFunction = "startCompletionTimer"
+    let stopCompletionTimerFunction = "stopCompletionTimer"
     
     static var processPool = WKProcessPool()
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         configuration.processPool = OfflineBackgroundWebview.processPool
+        let contentController = WKUserContentController()
+        configuration.userContentController = contentController
         super.init(frame: frame, configuration: configuration)
+        contentController.add(self, name: messageHandlerName)
         navigationDelegate = self
-        uiDelegate = self
         addScript(to: configuration)
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+    }
+    
+    deinit {
+        configuration.userContentController.removeScriptMessageHandler(forName: messageHandlerName)
     }
     
     override func load(_ request: URLRequest) -> WKNavigation? {
@@ -43,9 +52,6 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         isCompletionCalled = false
     }
     
-    private let startCompletionTimerFunction = "startCompletionTimer"
-    private let stopCompletionTimerFunction = "stopCompletionTimer"
-
     private func addScript(to configuration: WKWebViewConfiguration) {
         let sources = sourceTags.map { "\"\($0)\"" }.joined(separator: ",")
         let attributes = sourceAttributes.map { "\"\($0)\"" }.joined(separator: ",")
@@ -56,12 +62,12 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         var origOpen = XMLHttpRequest.prototype.open;
         var requestsCount = 0;
         XMLHttpRequest.prototype.open = function() {
-            alert('\(stopCompletionTimerFunction)');
+            window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(stopCompletionTimerFunction)");
             requestsCount = requestsCount + 1;
             this.addEventListener('load', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    alert('\(startCompletionTimerFunction)');
+                    window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(startCompletionTimerFunction)");
                 }
 
                 if (this.responseURL != null && this.responseURL.length > 0) {
@@ -71,13 +77,13 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
             this.addEventListener('error', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    alert('\(startCompletionTimerFunction)');
+                    window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(startCompletionTimerFunction)");
                 }
             });
             this.addEventListener('abort', function() {
                 requestsCount = requestsCount - 1;
                 if (requestsCount == 0) {
-                    alert('\(startCompletionTimerFunction)');
+                    window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(startCompletionTimerFunction)");
                 }
             });
 
@@ -96,7 +102,7 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         }
 
         function htmlChanged(mutationsList, observer) {
-            alert('\(startCompletionTimerFunction)');
+            window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(startCompletionTimerFunction)");
             for (let mutation of mutationsList) {
                 let links = getLinksForElement(mutation.target);
                 window.extractedLinks = window.extractedLinks.concat(links);
@@ -131,30 +137,11 @@ class OfflineBackgroundWebview: WKWebView, OfflineHTMLLinksExtractorProtocol {
         }
 
         addObserverForDomChanges();
-        alert('\(startCompletionTimerFunction)');
+        window.webkit.messageHandlers.\(messageHandlerName).postMessage("\(startCompletionTimerFunction)");
         """
         let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         configuration.preferences.javaScriptEnabled = true
         configuration.userContentController.addUserScript(script)
-    }
-}
-
-extension OfflineBackgroundWebview: WKNavigationDelegate, WKUIDelegate {
-    func startTimer() {
-        let startTime = Date().timeIntervalSince1970
-        stopTimer()
-        timerCancellable = Timer.publish(every: 10, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.complete()
-                    self?.stopTimer()
-                }
-            }
-    }
-    
-    func stopTimer() {
-        timerCancellable = nil
     }
     
     func complete() {
@@ -177,16 +164,29 @@ extension OfflineBackgroundWebview: WKNavigationDelegate, WKUIDelegate {
             isCompletionCalled = true
         }
     }
+}
 
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        if !isCompletionCalled {
-            isCompletionCalled = true
-            didFinishBlock?(nil, error)
-        }
+extension OfflineBackgroundWebview: WKScriptMessageHandler {
+    func startTimer() {
+        let startTime = Date().timeIntervalSince1970
+        stopTimer()
+        timerCancellable = Timer.publish(every: 10, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.complete()
+                    self?.stopTimer()
+                }
+            }
     }
     
-    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
-        switch message {
+    func stopTimer() {
+        timerCancellable = nil
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? String else { return }
+        switch body {
         case startCompletionTimerFunction:
             startTimer()
         case stopCompletionTimerFunction:
@@ -194,9 +194,17 @@ extension OfflineBackgroundWebview: WKNavigationDelegate, WKUIDelegate {
         default:
             break
         }
-        completionHandler()
-    }    
+    }
+}
 
+extension OfflineBackgroundWebview: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if !isCompletionCalled {
+            isCompletionCalled = true
+            didFinishBlock?(nil, error)
+        }
+    }
+    
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.sourceFrame.isMainFrame {
             latestRedirectURL = navigationAction.request.url
