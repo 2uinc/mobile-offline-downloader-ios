@@ -14,8 +14,8 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.6.0"),
-        .package(url: "https://github.com/realm/realm-swift.git", exact: "10.49.1")
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.13.4"),
+        .package(url: "https://github.com/realm/realm-swift.git", exact: "20.0.4")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
