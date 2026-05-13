@@ -53,7 +53,7 @@ extension String {
     }
     
     func fileURL(isDirectory: Bool = false) -> URL {
-        if #available(iOS 16.0, *) {
+        if #available(iOS 16.0, macOS 13.0, *) {
             return URL(filePath: self, directoryHint: isDirectory ? .isDirectory : .checkFileSystem)
         } else {
             return URL(fileURLWithPath: self, isDirectory: isDirectory)

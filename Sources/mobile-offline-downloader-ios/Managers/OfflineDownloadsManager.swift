@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 import Combine
 
 public enum OfflineDownloadsManagerEvent {
@@ -50,12 +52,12 @@ public class OfflineDownloadsManager {
         entries
             .filter { $0.status == .initialized && !$0.isUnsupported && !$0.isServerError }
     }
-    
+
     public var pausedEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .paused && !$0.isUnsupported && !$0.isServerError }
     }
-    
+
     public var failedEntries: [OfflineDownloaderEntry] {
         entries
             .filter { $0.status == .failed && !$0.isUnsupported && !$0.isServerError }
@@ -65,7 +67,7 @@ public class OfflineDownloadsManager {
         entries
             .filter { $0.isUnsupported }
     }
-    
+
     public var serverErrors: [OfflineDownloaderEntry] {
         entries
             .filter{ $0.isServerError }
@@ -92,7 +94,7 @@ public class OfflineDownloadsManager {
         updateFolder()
         loadEntries()
     }
-    
+
     private func loadEntries() {
         entries.removeAll()
         isLoading = true
@@ -126,7 +128,7 @@ public class OfflineDownloadsManager {
             print("Create module cache directory error: " + error.localizedDescription)
         }
     }
-    
+
     public func setConfig(_ config: OfflineDownloaderConfig) {
         self.config = config
     }
@@ -140,7 +142,7 @@ public class OfflineDownloadsManager {
         }
         start(entry: entry)
     }
-    
+
     private func sendStatusEvent(for entry: OfflineDownloaderEntry, progress: CGFloat = 0) {
         guard let object = object(for: entry.dataModel) else { return }
         let publisherObject = OfflineDownloadsManagerEventObject(
@@ -159,7 +161,7 @@ public class OfflineDownloadsManager {
             if entry.status != .initialized {
                 entry.status = .initialized
             }
-            
+
             sendStatusEvent(for: entry)
 
             if activeEntries.count < config.limitOfConcurrentDownloads {
@@ -171,7 +173,7 @@ public class OfflineDownloadsManager {
             }
         }
     }
-    
+
     private func startNext(latestStatus: OfflineDownloaderStatus) {
         guard let entry = waitingEntries.first else {
             if activeEntries.isEmpty {
@@ -240,20 +242,20 @@ public class OfflineDownloadsManager {
     public func resume(entry: OfflineDownloaderEntry) {
         start(entry: entry)
     }
-    
+
     public func resume(object: OfflineDownloadTypeProtocol) throws {
         let entry = try object.downloaderEntry()
         resume(entry: entry)
     }
-    
+
     func getQueuedEntry(for entry: OfflineDownloaderEntry) -> OfflineDownloaderEntry? {
         getEntry(for: entry.dataModel)
     }
-    
+
     func getEntry(for dataModel: OfflineStorageDataModel) -> OfflineDownloaderEntry? {
         getEntry(for: dataModel.id, type: dataModel.type)
     }
-    
+
     func getEntry(for id: String, type: String) -> OfflineDownloaderEntry? {
         entries.first {
             $0.dataModel.id == id &&
@@ -318,7 +320,7 @@ public class OfflineDownloadsManager {
 
             // remove downloader
             removeDownloader(for: entry)
-            
+
             // remove entry
             entries.remove(at: index)
         }
@@ -360,7 +362,7 @@ public class OfflineDownloadsManager {
         guard pageIndex < entry.parts.count && pageIndex >= 0 else { return .unknown }
         let part = entry.parts[pageIndex]
         let rootPath = entry.rootPath(with: config.rootPath).appendPath("\(pageIndex)")
-        
+
         switch part.value {
         case .html:
             let indexURL = rootPath.appendPath(config.indexFileName).fileURL()
@@ -372,7 +374,7 @@ public class OfflineDownloadsManager {
             return .localURL(url)
         }
     }
-    
+
     public func eventObject(for object: OfflineDownloadTypeProtocol, completionBlock: @escaping (Result<OfflineDownloadsManagerEventObject, Error>) -> Void) {
         do {
             let entry = try object.downloaderEntry()
@@ -403,7 +405,7 @@ public class OfflineDownloadsManager {
             completionBlock(.failure(error))
         }
     }
-    
+
     public func canDownload(object: OfflineDownloadTypeProtocol) -> Bool {
         if let entry = try? object.downloaderEntry() {
             let type = type(of: object)
@@ -411,7 +413,7 @@ public class OfflineDownloadsManager {
         }
         return false
     }
-    
+
     func createDownloader(for entry: OfflineDownloaderEntry) -> OfflineEntryDownloader {
         let downloader = OfflineEntryDownloader(entry: entry, config: config)
         downloaders.append(downloader)
@@ -427,18 +429,18 @@ public class OfflineDownloadsManager {
             .receive(on: DispatchQueue.main)
             .sink {[weak self, weak downloader] status in
                 guard let downloader = downloader else { return }
-                
+
                 self?.sendStatusEvent(for: downloader.entry, progress: downloader.progress.fractionCompleted)
-                
+
                 if status == .completed || status == .failed || status == .cancelled || status == .paused || status == .partiallyDownloaded {
                     self?.removeDownloader(for: downloader.entry)
                     self?.startNext(latestStatus: status)
-                }                
+                }
             }
             .store(in: &cancellables)
         return downloader
     }
-    
+
     func object(for data: OfflineStorageDataModel) -> OfflineDownloadTypeProtocol? {
         for type in config.downloadTypes {
             if let object = try? type.fromOfflineModel(data) {
@@ -447,14 +449,14 @@ public class OfflineDownloadsManager {
         }
         return nil
     }
-    
+
     func getDownloader(for entry: OfflineDownloaderEntry) -> OfflineEntryDownloader? {
         downloaders.first {
             $0.entry.dataModel.id == entry.dataModel.id &&
             $0.entry.dataModel.type == entry.dataModel.type
         }
     }
-    
+
     // MARK: All queue functions
     public func pauseAllActive() {
         activeEntries.forEach {
@@ -462,7 +464,7 @@ public class OfflineDownloadsManager {
             pause(entry: $0)
         }
     }
-    
+
     public func resumeAllActive() {
         pausedEntries.forEach {
             if $0.isForcePaused {
@@ -471,16 +473,20 @@ public class OfflineDownloadsManager {
             }
         }
     }
-    
+
     // MARK: Idle timer
-    
+
     func startIdle() {
+        #if canImport(UIKit) && os(iOS)
         if !UIApplication.shared.isIdleTimerDisabled {
             UIApplication.shared.isIdleTimerDisabled = true
         }
+        #endif
     }
-    
+
     func stopIdle() {
+        #if canImport(UIKit) && os(iOS)
         UIApplication.shared.isIdleTimerDisabled = false
+        #endif
     }
 }
