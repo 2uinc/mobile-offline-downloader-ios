@@ -6,9 +6,9 @@ public class OfflineLinkDownloader {
     private var dataTask: URLSessionDataTask?
     public var progress: Progress = Progress(totalUnitCount: 1)
     public var additionCookies: String?
-    
+
     public init() {}
-    
+
     public func download(urlString: String, toFolder folder: String, retryCount: Int = 0, errors: [Error] = []) async throws -> URL {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
@@ -20,7 +20,7 @@ public class OfflineLinkDownloader {
         }
 
         let request = request(for: url)
-        
+
         do {
             let newURL = try await download(with: request, toFolder: folder)
             return newURL
@@ -28,7 +28,7 @@ public class OfflineLinkDownloader {
             if error.isOfflineCancel {
                 throw error
             }
-            
+
             var newErrors = errors
             newErrors.append(error)
 
@@ -39,7 +39,7 @@ public class OfflineLinkDownloader {
             }
         }
     }
-    
+
     public func data(urlString: String, retryCount: Int = 0, errors: [Error] = []) async throws -> Data {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
@@ -49,7 +49,7 @@ public class OfflineLinkDownloader {
         }
 
         let request = request(for: url)
-        
+
         do {
             let (data, _) = try await data(with: request)
             return data
@@ -57,7 +57,7 @@ public class OfflineLinkDownloader {
             if error.isOfflineCancel {
                 throw error
             }
-            
+
             var newErrors = errors
             newErrors.append(error)
 
@@ -68,7 +68,7 @@ public class OfflineLinkDownloader {
             }
         }
     }
-    
+
     public func contents(urlString: String) async throws -> String {
         progress.completedUnitCount = 0
         if Task.isCancelled { throw URLError(.cancelled) }
@@ -80,9 +80,9 @@ public class OfflineLinkDownloader {
             throw OfflineLinkDownloaderError.cantConvertData
         }
     }
-    
+
     private func request(for url: URL) -> URLRequest {
-        
+
         var request = URLRequest(url: url)
         if let cookieString = additionCookies {
             request.addValue(cookieString, forHTTPHeaderField: "Cookie")
@@ -166,7 +166,7 @@ public class OfflineLinkDownloader {
             self?.downloadTask?.cancel()
         }
     }
-    
+
     private func data(with request: URLRequest) async throws -> (Data, URLResponse) {
         if #available(iOS 15.0, *) {
             return try await URLSession.shared.data(for: request)
@@ -194,7 +194,7 @@ public class OfflineLinkDownloader {
             }
         }
     }
-    
+
     static func download(link: OfflineDownloaderLink, to path: String, with mainProgress: Progress?, cookieString: String? = nil) async throws {
         let downloader = OfflineLinkDownloader()
         downloader.additionCookies = cookieString
@@ -246,7 +246,7 @@ extension FileManager {
 
 extension URL {
     var filePath: String {
-        if #available(iOS 16.0, *) {
+        if #available(iOS 16.0, macOS 13.0, *) {
             return path(percentEncoded: false)
         } else {
             return path
